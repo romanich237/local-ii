@@ -308,6 +308,26 @@ echo "Устанавливаю системные зависимости…"
 install_system_packages
 install_certbot
 
+APP_PORT=$(python3 - <<'PY'
+import random
+import socket
+
+ports = list(range(10000, 15001))
+random.SystemRandom().shuffle(ports)
+for port in ports:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError:
+            continue
+        print(port)
+        break
+else:
+    raise SystemExit("Не найден свободный порт в диапазоне 10000–15000")
+PY
+)
+echo "Свободный внутренний порт для Nginx: ${APP_PORT}"
+
 if [[ "$DUCKDNS_ENABLED" == true ]]; then
   echo "Настраиваю автоматическое обновление DuckDNS…"
   install -d -m 700 /etc/local-ii
@@ -371,12 +391,12 @@ systemctl enable --now ollama
 cd "$APP_DIR"
 npm ci --omit=dev
 
-ADMIN_PASSWORD="$ADMIN_PASSWORD" node - "$DOMAIN" "$MODEL" "$ADMIN_USERNAME" <<'NODE'
+ADMIN_PASSWORD="$ADMIN_PASSWORD" node - "$DOMAIN" "$MODEL" "$ADMIN_USERNAME" "$APP_PORT" <<'NODE'
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { hashPassword } = require('./src/security');
 const config = {
-  port: 1488,
+  port: Number(process.argv[5]),
   domain: process.argv[2],
   baseUrl: `https://${process.argv[2]}/v1`,
   ollamaUrl: 'http://127.0.0.1:11434',
@@ -428,7 +448,7 @@ server {
 
     client_max_body_size 4m;
     location / {
-        proxy_pass http://127.0.0.1:1488;
+        proxy_pass http://127.0.0.1:${APP_PORT};
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -459,7 +479,8 @@ echo "Готово."
 echo "Панель: https://${DOMAIN}/auth/"
 echo "Логин панели: ${ADMIN_USERNAME}"
 echo "Пароль панели: ${ADMIN_PASSWORD}"
-echo "Сохраните логин и пароль. Пароль повторно не показывается."
+echo "Порт Nginx → панели: ${APP_PORT}"
+echo "Сохраните адрес, логин, пароль и порт. Пароль повторно не показывается."
 echo "API: https://${DOMAIN}/v1/chat/completions"
 echo "Модель: ${MODEL}"
 if [[ "$DUCKDNS_ENABLED" == true ]]; then echo "DuckDNS: обновление IP каждые 5 минут"; fi
