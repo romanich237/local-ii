@@ -35,8 +35,46 @@ function loginPage({ error = '', theme = 'dark' } = {}) {
   });
 }
 
-function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = 'dark' }) {
+function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = 'dark', models = [], modelJobs = [], modelError = '', notice = null }) {
   const number = value => Number(value || 0).toLocaleString('ru-RU');
+  const formatBytes = value => {
+    const bytes = Number(value || 0);
+    if (!bytes) return '—';
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${(bytes / (1024 ** index)).toLocaleString('ru-RU', { maximumFractionDigits: index > 2 ? 1 : 0 })} ${units[index]}`;
+  };
+
+  const modelRows = models.map(item => {
+    const name = String(item.name || item.model || '');
+    const active = name === model;
+    const details = item.details || {};
+    return `
+      <tr>
+        <td><strong class="mono">${escapeHtml(name)}</strong><span class="muted">${escapeHtml(details.family || 'Ollama')}</span></td>
+        <td>${formatBytes(item.size)}</td>
+        <td>${escapeHtml(details.parameter_size || '—')}</td>
+        <td><span class="status ${active ? 'status-ok' : 'status-neutral'}">${active ? 'Базовая' : 'Установлена'}</span></td>
+        <td class="actions">
+          ${active
+            ? '<button class="button button-danger" type="button" disabled title="Сначала измените базовую модель">Удалить</button>'
+            : `<form method="post" action="/auth/models/delete"><input type="hidden" name="model" value="${escapeHtml(name)}"><button class="button button-danger" type="submit">Удалить</button></form>`}
+        </td>
+      </tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">Установленных моделей пока нет</td></tr>';
+
+  const modelJobRows = modelJobs.map(job => `
+    <div class="model-job">
+      <div><strong class="mono">${escapeHtml(job.model)}</strong><span>${escapeHtml(job.message)}</span></div>
+      <span class="status ${job.status === 'success' ? 'status-ok' : job.status === 'error' ? 'status-off' : 'status-loading'}">${job.status === 'success' ? 'Готово' : job.status === 'error' ? 'Ошибка' : 'Загрузка'}</span>
+    </div>`).join('');
+
+  const noticeHtml = notice?.message
+    ? `<div class="alert alert-${['success', 'warning'].includes(notice.type) ? notice.type : 'error'}">${escapeHtml(notice.message)}</div>`
+    : modelError
+      ? `<div class="alert alert-error">${escapeHtml(modelError)}</div>`
+      : '';
+
   const tokenBreakdown = keys.map(key => {
     const used = Number(key.month_tokens || 0);
     const limit = Number(key.monthly_limit || 0);
@@ -89,6 +127,10 @@ function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = '
     COMPLETION_TOKENS: number(tokenStats.completion_tokens),
     MONTH_REQUESTS: number(tokenStats.month_requests),
     KEY_COUNT: keys.length,
+    MODEL_COUNT: models.length,
+    MODEL_ROWS: modelRows,
+    MODEL_JOBS: modelJobRows ? `<div class="model-jobs"><h3>Последние загрузки</h3>${modelJobRows}</div>` : '',
+    MODEL_NOTICE: noticeHtml,
     TOKEN_BREAKDOWN: tokenBreakdown,
     KEY_ROWS: keyRows,
     EVENT_ROWS: eventRows,
