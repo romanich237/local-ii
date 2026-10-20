@@ -1,0 +1,12 @@
+{
+  "port": 1488,
+  "domain": "ai.example.com",
+  "ollamaUrl": "http://127.0.0.1:11434",
+  "defaultModel": "qwen3:8b",
+  "adminPasswordHash": "",
+  "sessionSecret": "replace-with-random-secret",
+  "trustProxy": true,
+  "autoUpdate": true,
+  "updateIntervalSeconds": 60,
+  "repositoryBranch": "main"
+}

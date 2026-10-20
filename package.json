@@ -1,0 +1,21 @@
+{
+  "name": "local-ai-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Локальный OpenAI-совместимый API на Ollama с панелью управления ключами",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "update": "node src/updater.js",
+    "check": "node --check src/server.js && node --check src/db.js && node --check src/updater.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0"
+  }
+}
