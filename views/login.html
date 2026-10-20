@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#ff7a00">
   <title>Вход | Local AI Server</title>
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
@@ -12,13 +13,13 @@
     <section class="login-card">
       <div class="brand-mark">AI</div>
       <p class="eyebrow">Local AI Server</p>
-      <h1>Панель управления</h1>
-      <p class="lead">Войдите, чтобы управлять API-ключами и расходом токенов.</p>
+      <h1>Добро пожаловать</h1>
+      <p class="lead">Войдите в центр управления API-ключами, моделями и статистикой запросов.</p>
       {{ERROR}}
       <form class="stack" method="post" action="/auth/login">
-        <label>Логин<input name="username" type="text" autocomplete="username" minlength="10" maxlength="15" required autofocus></label>
-        <label>Пароль<input name="password" type="password" autocomplete="current-password" minlength="10" maxlength="15" required></label>
-        <button class="button button-primary" type="submit">Войти</button>
+        <label>Логин<input name="username" type="text" autocomplete="username" minlength="10" maxlength="15" placeholder="Введите логин" required autofocus></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" minlength="10" maxlength="15" placeholder="Введите пароль" required></label>
+        <button class="button button-primary" type="submit">Войти в панель</button>
       </form>
       <nav class="login-links" aria-label="Дополнительные ссылки">
         <a href="/docs">Документация API</a>

@@ -35,12 +35,32 @@ function loginPage({ error = '', theme = 'dark' } = {}) {
   });
 }
 
-function dashboard({ keys, totals, recent, model, baseUrl, newKey, theme = 'dark' }) {
+function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = 'dark' }) {
+  const number = value => Number(value || 0).toLocaleString('ru-RU');
+  const tokenBreakdown = keys.map(key => {
+    const used = Number(key.month_tokens || 0);
+    const limit = Number(key.monthly_limit || 0);
+    const percent = limit > 0 ? Math.round((used / limit) * 100) : 0;
+    const stateClass = percent >= 100 ? ' usage-item-danger' : percent >= 80 ? ' usage-item-warning' : '';
+    const meter = limit > 0
+      ? `<progress class="usage-progress" max="${limit}" value="${Math.min(used, limit)}" aria-label="Использовано ${percent}%"></progress>`
+      : '<div class="usage-no-limit" aria-label="Лимит не установлен"></div>';
+    return `
+      <article class="usage-item${stateClass}">
+        <div class="usage-item-head">
+          <div class="usage-key"><strong>${escapeHtml(key.name)}</strong><span class="mono">${escapeHtml(key.key_prefix)}…</span></div>
+          <span class="usage-percent">${limit > 0 ? `${percent}%` : 'Без лимита'}</span>
+        </div>
+        <div class="usage-item-values"><span>Потрачено <strong>${number(used)}</strong></span><span>${limit > 0 ? `Лимит ${number(limit)}` : 'Ограничение отключено'}</span></div>
+        ${meter}
+      </article>`;
+  }).join('') || '<div class="usage-empty">Создайте API-ключ — здесь появится его расход токенов</div>';
+
   const keyRows = keys.map(key => `
     <tr>
       <td><strong>${escapeHtml(key.name)}</strong><span class="muted mono">${escapeHtml(key.prefix)}…</span></td>
       <td><span class="status ${key.enabled ? 'status-ok' : 'status-off'}">${key.enabled ? 'Активен' : 'Выключен'}</span></td>
-      <td>${Number(key.month_usage || 0).toLocaleString('ru-RU')}</td>
+      <td>${number(key.month_tokens)}</td>
       <td>${key.monthly_limit ? Number(key.monthly_limit).toLocaleString('ru-RU') : 'Без лимита'}</td>
       <td class="actions">
         <form method="post" action="/auth/keys/${Number(key.id)}/toggle"><button class="button button-secondary" type="submit">${key.enabled ? 'Отключить' : 'Включить'}</button></form>
@@ -61,9 +81,17 @@ function dashboard({ keys, totals, recent, model, baseUrl, newKey, theme = 'dark
   return render('dashboard', {
     ...themeData(theme, '/auth/'),
     MODEL: escapeHtml(model), BASE_URL: escapeHtml(baseUrl),
-    TOTAL_TOKENS: Number(totals.total_tokens || 0).toLocaleString('ru-RU'),
-    TOTAL_REQUESTS: Number(totals.requests || 0).toLocaleString('ru-RU'),
-    KEY_COUNT: keys.length, KEY_ROWS: keyRows, EVENT_ROWS: eventRows,
+    ALL_TOKENS: number(tokenStats.all_tokens),
+    MONTH_TOKENS: number(tokenStats.month_tokens),
+    TODAY_TOKENS: number(tokenStats.today_tokens),
+    AVG_TOKENS: number(tokenStats.avg_tokens),
+    PROMPT_TOKENS: number(tokenStats.prompt_tokens),
+    COMPLETION_TOKENS: number(tokenStats.completion_tokens),
+    MONTH_REQUESTS: number(tokenStats.month_requests),
+    KEY_COUNT: keys.length,
+    TOKEN_BREAKDOWN: tokenBreakdown,
+    KEY_ROWS: keyRows,
+    EVENT_ROWS: eventRows,
     NEW_KEY: newKey ? `<section class="card key-created"><h2>Новый API-ключ</h2><p>Скопируйте его сейчас. Позже полный ключ не показывается.</p><code>${escapeHtml(newKey)}</code></section>` : ''
   });
 }

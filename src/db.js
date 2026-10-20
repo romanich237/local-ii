@@ -46,8 +46,16 @@ const statements = {
   touchKey: db.prepare('UPDATE api_keys SET last_used_at=CURRENT_TIMESTAMP WHERE id=?'),
   toggleKey: db.prepare('UPDATE api_keys SET enabled=? WHERE id=?'),
   deleteKey: db.prepare('DELETE FROM api_keys WHERE id=?'),
-  totals: db.prepare(`SELECT COUNT(*) requests, COALESCE(SUM(total_tokens),0) tokens,
-    COALESCE(ROUND(AVG(latency_ms)),0) avg_latency FROM usage_events WHERE created_at >= datetime('now','start of month')`),
+  tokenStats: db.prepare(`SELECT
+    COUNT(*) all_requests,
+    COALESCE(SUM(total_tokens),0) all_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN total_tokens ELSE 0 END),0) month_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of day') THEN total_tokens ELSE 0 END),0) today_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN prompt_tokens ELSE 0 END),0) prompt_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN completion_tokens ELSE 0 END),0) completion_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN 1 ELSE 0 END),0) month_requests,
+    COALESCE(ROUND(AVG(CASE WHEN created_at >= datetime('now','start of month') THEN total_tokens END)),0) avg_tokens
+    FROM usage_events`),
   recent: db.prepare(`SELECT u.created_at,k.name,u.model,u.total_tokens,u.latency_ms,u.status_code
     FROM usage_events u JOIN api_keys k ON k.id=u.key_id ORDER BY u.id DESC LIMIT 50`)
 };

@@ -137,7 +137,7 @@ app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: 
 app.get('/auth/', requireAdmin, (req, res) => {
   const newKey = cookieMap(req).lai_new_key || '';
   if (newKey) res.clearCookie('lai_new_key', { path: '/auth' });
-  res.send(dashboard({ keys: statements.listKeys.all(), totals: statements.totals.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey, theme: selectedTheme(req) }));
+  res.send(dashboard({ keys: statements.listKeys.all(), tokenStats: statements.tokenStats.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey, theme: selectedTheme(req) }));
 });
 app.post('/auth/keys', requireAdmin, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 60);
