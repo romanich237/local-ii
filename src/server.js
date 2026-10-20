@@ -17,6 +17,8 @@ app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 app.use('/assets', express.static(path.join(config.root, 'public'), { fallthrough: false, maxAge: '1h' }));
 
 const loginAttempts = new Map();
+const modelJobs = new Map();
+const modelNamePattern = /^[a-zA-Z0-9._/-]+(?::[a-zA-Z0-9._-]+)?$/;
 function cookieMap(req) {
   try {
     return Object.fromEntries(String(req.headers.cookie || '').split(';').map(v => v.trim().split('=').map(decodeURIComponent)).filter(v => v.length === 2));
@@ -31,6 +33,39 @@ function bearer(req) {
   return value.startsWith('Bearer ') ? value.slice(7).trim() : '';
 }
 function estimateTokens(value) { return Math.ceil(JSON.stringify(value ?? '').length / 4); }
+
+function setAdminNotice(req, res, type, message) {
+  res.cookie('lai_notice', JSON.stringify({ type, message }), {
+    httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 60_000, path: '/auth'
+  });
+}
+
+async function listInstalledModels() {
+  const upstream = await fetch(`${config.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(10_000) });
+  if (!upstream.ok) throw new Error(`Ollama вернула код ${upstream.status}`);
+  const result = await upstream.json();
+  return Array.isArray(result.models) ? result.models : [];
+}
+
+function startModelPull(model) {
+  const job = { model, status: 'loading', message: 'Модель скачивается', startedAt: new Date().toISOString() };
+  modelJobs.set(model, job);
+  void (async () => {
+    try {
+      const upstream = await fetch(`${config.ollamaUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model, stream: false }),
+        signal: AbortSignal.timeout(24 * 60 * 60 * 1000)
+      });
+      const result = await upstream.json().catch(() => ({}));
+      if (!upstream.ok || result.error) throw new Error(result.error || `Ollama вернула код ${upstream.status}`);
+      Object.assign(job, { status: 'success', message: 'Модель скачана', finishedAt: new Date().toISOString() });
+    } catch (error) {
+      Object.assign(job, { status: 'error', message: error.message, finishedAt: new Date().toISOString() });
+    }
+  })();
+}
 
 app.get('/', (_req, res) => res.json({ service: 'Local AI Server', status: 'ok', base_url: config.baseUrl, models: `${config.baseUrl}/models`, docs: '/docs', panel: '/auth/' }));
 app.get(['/v1', '/v1/'], (_req, res) => res.json({
@@ -146,11 +181,83 @@ app.post('/auth/login', (req, res) => {
   res.redirect('/auth/');
 });
 app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: '/auth' }); res.redirect('/auth/login'); });
-app.get('/auth/', requireAdmin, (req, res) => {
-  const newKey = cookieMap(req).lai_new_key || '';
+app.get('/auth/', requireAdmin, async (req, res) => {
+  const cookies = cookieMap(req);
+  const newKey = cookies.lai_new_key || '';
+  let notice = null;
   if (newKey) res.clearCookie('lai_new_key', { path: '/auth' });
-  res.send(dashboard({ keys: statements.listKeys.all(), tokenStats: statements.tokenStats.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey, theme: selectedTheme(req) }));
+  if (cookies.lai_notice) {
+    res.clearCookie('lai_notice', { path: '/auth' });
+    try { notice = JSON.parse(cookies.lai_notice); } catch { notice = null; }
+  }
+
+  let models = [];
+  let modelError = '';
+  try { models = await listInstalledModels(); }
+  catch (error) { modelError = `Не удалось получить список моделей: ${error.message}`; }
+
+  res.send(dashboard({
+    keys: statements.listKeys.all(),
+    tokenStats: statements.tokenStats.get(),
+    recent: statements.recent.all(),
+    model: config.defaultModel,
+    baseUrl: config.baseUrl,
+    newKey,
+    theme: selectedTheme(req),
+    models,
+    modelJobs: Array.from(modelJobs.values()).slice(-8).reverse(),
+    modelError,
+    notice
+  }));
 });
+
+app.post('/auth/models/pull', requireAdmin, (req, res) => {
+  const customModel = String(req.body.customModel || '').trim();
+  const model = customModel || String(req.body.modelPreset || '').trim();
+  if (!model || model.length > 160 || !modelNamePattern.test(model)) {
+    setAdminNotice(req, res, 'error', 'Укажите корректное имя модели, например qwen3:4b');
+    return res.redirect('/auth/#models');
+  }
+  if (modelJobs.get(model)?.status === 'loading') {
+    setAdminNotice(req, res, 'warning', `Модель ${model} уже скачивается`);
+    return res.redirect('/auth/#models');
+  }
+  startModelPull(model);
+  setAdminNotice(req, res, 'success', `Скачивание ${model} запущено. Обновите страницу, чтобы увидеть результат.`);
+  res.redirect('/auth/#models');
+});
+
+app.post('/auth/models/delete', requireAdmin, async (req, res) => {
+  const model = String(req.body.model || '').trim();
+  if (!model || model.length > 160 || !modelNamePattern.test(model)) {
+    setAdminNotice(req, res, 'error', 'Передано некорректное имя модели');
+    return res.redirect('/auth/#models');
+  }
+  if (model === config.defaultModel) {
+    setAdminNotice(req, res, 'warning', 'Активную базовую модель удалить нельзя');
+    return res.redirect('/auth/#models');
+  }
+  if (modelJobs.get(model)?.status === 'loading') {
+    setAdminNotice(req, res, 'warning', 'Нельзя удалить модель во время скачивания');
+    return res.redirect('/auth/#models');
+  }
+  try {
+    const upstream = await fetch(`${config.ollamaUrl}/api/delete`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model }),
+      signal: AbortSignal.timeout(30_000)
+    });
+    const result = await upstream.json().catch(() => ({}));
+    if (!upstream.ok || result.error) throw new Error(result.error || `Ollama вернула код ${upstream.status}`);
+    modelJobs.delete(model);
+    setAdminNotice(req, res, 'success', `Модель ${model} удалена`);
+  } catch (error) {
+    setAdminNotice(req, res, 'error', `Не удалось удалить модель: ${error.message}`);
+  }
+  res.redirect('/auth/#models');
+});
+
 app.post('/auth/keys', requireAdmin, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 60);
   const monthlyLimit = Math.max(0, Number.parseInt(req.body.monthlyLimit || '0', 10) || 0);
