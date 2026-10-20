@@ -1,10 +1,22 @@
 'use strict';
 
+const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { loadConfig } = require('./config');
 const config = loadConfig();
 
-const run = (command, args) => execFileSync(command, args, { cwd: config.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 }).trim();
+const run = (command, args) => execFileSync(command, args, {
+  cwd: config.root,
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+  timeout: 120000,
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+}).trim();
+
+const credentialFile = '/etc/local-ii/github-credentials';
+if (fs.existsSync(credentialFile)) {
+  run('git', ['config', '--local', 'credential.helper', `store --file=${credentialFile}`]);
+}
 let updating = false;
 
 function check() {
