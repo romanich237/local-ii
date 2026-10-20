@@ -33,6 +33,18 @@ function bearer(req) {
 function estimateTokens(value) { return Math.ceil(JSON.stringify(value ?? '').length / 4); }
 
 app.get('/', (_req, res) => res.json({ service: 'Local AI Server', status: 'ok', base_url: config.baseUrl, models: `${config.baseUrl}/models`, docs: '/docs', panel: '/auth/' }));
+app.get(['/v1', '/v1/'], (_req, res) => res.json({
+  object: 'api',
+  name: 'Local AI Server',
+  openai_compatible: true,
+  base_url: config.baseUrl,
+  endpoints: {
+    models: `${config.baseUrl}/models`,
+    chat_completions: `${config.baseUrl}/chat/completions`
+  },
+  default_model: config.defaultModel,
+  documentation: `https://${config.domain}/docs`
+}));
 app.get('/docs', (req, res) => res.send(docsPage({ baseUrl: config.baseUrl, model: config.defaultModel, theme: selectedTheme(req) })));
 app.get('/theme/:theme', (req, res) => {
   if (!['dark', 'light'].includes(req.params.theme)) return res.status(400).send('Неизвестная тема');

@@ -40,6 +40,38 @@
       <p>Создайте ключ в <a href="/auth/">админ-панели</a> и передавайте его в заголовке Authorization.</p>
     </section>
 
+
+    <section class="card docs-card">
+      <p class="eyebrow">Cursor</p>
+      <h2>Подключение в Cursor</h2>
+      <p>Откройте <strong>Cursor Settings → Models</strong>, добавьте API-ключ, включите <strong>Use API Key</strong> и <strong>Base URL Override</strong>.</p>
+      <dl class="details">
+        <div><dt>Base URL</dt><dd><code>{{BASE_URL}}</code></dd></div>
+        <div><dt>Модель</dt><dd><code>{{MODEL}}</code></dd></div>
+      </dl>
+      <p>Для Agent и вызова инструментов используйте модель с поддержкой tool calling.</p>
+    </section>
+
+    <section class="card docs-card">
+      <p class="eyebrow">OpenCode</p>
+      <h2>Конфигурация OpenCode</h2>
+      <p>Выполните <code>/connect</code>, выберите <code>Other</code>, укажите ID <code>local-ii</code> и вставьте API-ключ.</p>
+      <pre><code>{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "local-ii": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local AI Server",
+      "options": { "baseURL": "{{BASE_URL}}" },
+      "models": {
+        "{{MODEL}}": { "name": "{{MODEL}}" }
+      }
+    }
+  },
+  "model": "local-ii/{{MODEL}}"
+}</code></pre>
+    </section>
+
     <section class="card docs-card">
       <p class="eyebrow">cURL</p>
       <h2>Пример запроса</h2>
