@@ -58,7 +58,7 @@ function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = '
 
   const keyRows = keys.map(key => `
     <tr>
-      <td><strong>${escapeHtml(key.name)}</strong><span class="muted mono">${escapeHtml(key.prefix)}…</span></td>
+      <td><strong>${escapeHtml(key.name)}</strong><span class="muted mono">${escapeHtml(key.key_prefix)}…</span></td>
       <td><span class="status ${key.enabled ? 'status-ok' : 'status-off'}">${key.enabled ? 'Активен' : 'Выключен'}</span></td>
       <td>${number(key.month_tokens)}</td>
       <td>${key.monthly_limit ? Number(key.monthly_limit).toLocaleString('ru-RU') : 'Без лимита'}</td>

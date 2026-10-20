@@ -6,8 +6,41 @@ const Database = require('better-sqlite3');
 const { root } = require('./config');
 
 const dataDir = path.join(root, 'data');
+const dbPath = path.join(dataDir, 'local-ai.db');
+const misplacedDbPath = path.join(root, 'data.db');
 fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-const db = new Database(path.join(dataDir, 'local-ai.db'));
+
+function countApiKeys(file) {
+  if (!fs.existsSync(file)) return -1;
+  let candidate;
+  try {
+    candidate = new Database(file, { readonly: true, fileMustExist: true });
+    const table = candidate.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'").get();
+    return table ? Number(candidate.prepare('SELECT COUNT(*) AS total FROM api_keys').get().total) : 0;
+  } catch (error) {
+    console.warn(`SQLite: не удалось проверить ${file}: ${error.message}`);
+    return -1;
+  } finally {
+    if (candidate) candidate.close();
+  }
+}
+
+const currentKeyCount = countApiKeys(dbPath);
+const misplacedKeyCount = countApiKeys(misplacedDbPath);
+if (misplacedKeyCount > 0 && currentKeyCount <= 0) {
+  const stamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+  for (const suffix of ['', '-wal', '-shm']) {
+    const current = `${dbPath}${suffix}`;
+    const misplaced = `${misplacedDbPath}${suffix}`;
+    if (fs.existsSync(current)) fs.renameSync(current, `${current}.empty-backup-${stamp}`);
+    if (fs.existsSync(misplaced)) fs.renameSync(misplaced, current);
+  }
+  console.log(`SQLite: восстановлена база data.db с ${misplacedKeyCount} API-ключами`);
+} else if (misplacedKeyCount > 0 && currentKeyCount > 0) {
+  console.warn('SQLite: найдены две непустые базы. Используется data/local-ai.db, файл data.db сохранён без изменений.');
+}
+
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(`
