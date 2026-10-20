@@ -128,10 +128,14 @@ echo "CPU: ${CPU_CORES} ядер | RAM: ${RAM_GB} ГБ | Свободно: ${DIS
 echo "GPU: ${GPU_NAME} | VRAM: ${VRAM_GB} ГБ"
 echo ""
 
-read -rp "Домен без https:// (например ai.example.com): " DOMAIN
-if [[ ! "$DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
-  echo "Некорректный домен"; exit 1
-fi
+echo ""
+echo "1. Домен"
+echo "Введите домен без https:// и без слеша в конце. Пример: ai.cyxap.top"
+while true; do
+  read -rp "Домен: " DOMAIN
+  if [[ "$DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then break; fi
+  echo "Ошибка: нужен домен вида ai.example.com. Попробуйте ещё раз."
+done
 DUCKDNS_ENABLED=false
 DUCKDNS_SUBDOMAIN=""
 DUCKDNS_TOKEN=""
@@ -139,48 +143,164 @@ if [[ "$DOMAIN" =~ ^([a-zA-Z0-9-]+)\.duckdns\.org$ ]]; then
   DUCKDNS_ENABLED=true
   DUCKDNS_SUBDOMAIN="${BASH_REMATCH[1]}"
   echo "Обнаружен домен DuckDNS: ${DOMAIN}"
-  read -rsp "Токен DuckDNS: " DUCKDNS_TOKEN; echo
-  if [[ ! "$DUCKDNS_TOKEN" =~ ^[a-zA-Z0-9-]{20,80}$ ]]; then
-    echo "Некорректный токен DuckDNS"; exit 1
-  fi
-fi
-read -rp "Email для Let's Encrypt: " SSL_EMAIL
-if [[ ! "$SSL_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
-  echo "Некорректный email"; exit 1
-fi
-read -rp "Логин веб-панели (10–15 символов, латиница/цифры/_/-): " ADMIN_USERNAME
-if [[ ! "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_-]{10,15}$ ]]; then
-  echo "Логин должен содержать 10–15 символов: латинские буквы, цифры, _ или -"; exit 1
-fi
-read -rsp "Пароль веб-панели (10–15 символов): " ADMIN_PASSWORD; echo
-if (( ${#ADMIN_PASSWORD} < 10 || ${#ADMIN_PASSWORD} > 15 )); then
-  echo "Пароль должен содержать от 10 до 15 символов"; exit 1
+  while true; do
+    read -rsp "Токен DuckDNS: " DUCKDNS_TOKEN; echo
+    if [[ "$DUCKDNS_TOKEN" =~ ^[a-zA-Z0-9-]{20,80}$ ]]; then break; fi
+    echo "Ошибка: скопируйте токен со страницы duckdns.org и повторите ввод."
+  done
 fi
 
-MODELS=("qwen3.5:0.8b" "qwen3.5:2b" "qwen3.5:4b" "qwen3.5:9b" "qwen3.5:27b" "qwen3.5:35b")
-MODEL_RAM=(4 6 8 12 28 32)
-MODEL_SIZE=("~1.3 ГБ" "~3.1 ГБ" "~4.0 ГБ" "~7.6 ГБ" "~20 ГБ" "~22 ГБ")
+echo ""
+echo "2. Email для SSL-сертификата"
+echo "Пример: admin@example.com"
+while true; do
+  read -rp "Email: " SSL_EMAIL
+  if [[ "$SSL_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then break; fi
+  echo "Ошибка: введите полный email, например admin@example.com."
+done
+
+echo ""
+echo "3. Данные для входа в веб-панель"
+echo "Логин должен содержать от 10 до 15 символов."
+echo "Разрешены латинские буквы, цифры, _ и -. Пример: administrator"
+while true; do
+  read -rp "Логин панели: " ADMIN_USERNAME
+  if [[ "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_-]{10,15}$ ]]; then break; fi
+  echo "Ошибка: введено ${#ADMIN_USERNAME} символов. Нужно от 10 до 15, например administrator."
+done
+
+ADMIN_PASSWORD=$(od -An -N7 -tx1 /dev/urandom | tr -d ' \n')
+echo "Пароль будет создан автоматически и показан после установки."
+
+MODELS=(
+  "smollm2:135m"
+  "gemma3:270m"
+  "qwen2.5:0.5b"
+  "qwen3:0.6b"
+  "tinyllama:1.1b"
+  "gemma3:1b"
+  "qwen2.5:1.5b"
+  "deepseek-r1:1.5b"
+  "llama3.2:1b"
+  "qwen3.5:0.8b"
+  "qwen3:1.7b"
+  "granite3.3:2b"
+  "gemma2:2b"
+  "smollm2:1.7b"
+  "llama3.2:3b"
+  "qwen3:4b"
+  "phi4-mini"
+  "qwen3.5:2b"
+  "gemma3:4b"
+  "mistral:7b"
+  "deepseek-r1:7b"
+  "qwen2.5:7b"
+  "qwen2.5-coder:7b"
+  "llama3.1:8b"
+  "gemma2:9b"
+  "mistral-nemo:12b"
+  "qwen3.5:9b"
+  "qwen2.5:14b"
+  "deepseek-r1:14b"
+  "phi4"
+  "gpt-oss:20b"
+  "qwen3.5:27b"
+  "qwen2.5:32b"
+  "deepseek-r1:32b"
+  "llama3.3:70b"
+  "deepseek-r1:70b"
+  "qwen2.5:72b"
+  "gpt-oss:120b"
+  "deepseek-r1:671b"
+)
+MODEL_RAM=(2 2 2 2 2 3 3 4 4 4 4 4 4 4 6 6 6 6 8 10 10 10 12 12 12 16 16 20 20 20 24 28 32 32 64 64 64 96 512)
+MODEL_SIZE=("~0.3 ГБ" "~0.3 ГБ" "~0.4 ГБ" "~0.5 ГБ" "~0.6 ГБ" "~0.8 ГБ" "~1.0 ГБ" "~1.1 ГБ" "~1.3 ГБ" "~1.3 ГБ" "~1.4 ГБ" "~1.5 ГБ" "~1.6 ГБ" "~1.8 ГБ" "~2.0 ГБ" "~2.5 ГБ" "~2.5 ГБ" "~3.1 ГБ" "~3.3 ГБ" "~4.4 ГБ" "~4.7 ГБ" "~4.7 ГБ" "~4.7 ГБ" "~4.9 ГБ" "~5.4 ГБ" "~7.1 ГБ" "~7.6 ГБ" "~9.0 ГБ" "~9.0 ГБ" "~9.1 ГБ" "~13 ГБ" "~20 ГБ" "~20 ГБ" "~20 ГБ" "~43 ГБ" "~43 ГБ" "~47 ГБ" "~65 ГБ" "~404 ГБ")
+MODEL_INFO=(
+  "Hugging Face, сверхлёгкая"
+  "Google, сверхлёгкая"
+  "Alibaba, компактная"
+  "Alibaba, новая компактная"
+  "Meta, сверхлёгкая"
+  "Google, компактная"
+  "Alibaba, универсальная"
+  "DeepSeek, рассуждения"
+  "Meta, компактная"
+  "Alibaba, мультиязычная"
+  "Alibaba, новая универсальная"
+  "IBM, универсальная"
+  "Google, универсальная"
+  "Hugging Face, компактная"
+  "Meta, универсальная"
+  "Alibaba, новая универсальная"
+  "Microsoft, инструкции"
+  "Alibaba, мультиязычная"
+  "Google, текст и изображения"
+  "Mistral AI, универсальная"
+  "DeepSeek, рассуждения"
+  "Alibaba, универсальная"
+  "Alibaba, программирование"
+  "Meta, универсальная"
+  "Google, универсальная"
+  "Mistral AI, большой контекст"
+  "Alibaba, мощная"
+  "Alibaba, универсальная"
+  "DeepSeek, рассуждения"
+  "Microsoft, мощная"
+  "OpenAI, рассуждения"
+  "Alibaba, для мощных серверов"
+  "Alibaba, мощная"
+  "DeepSeek, рассуждения"
+  "Meta, мощная"
+  "DeepSeek, мощная"
+  "Alibaba, мощная"
+  "OpenAI, для GPU-сервера"
+  "DeepSeek, полный размер"
+)
 RECOMMENDED=1
 for i in "${!MODELS[@]}"; do
   if (( RAM_GB >= MODEL_RAM[i] )); then RECOMMENDED=$((i + 1)); fi
 done
 
 echo ""
-echo "Подходящие базовые модели:"
+echo "4. Основная нейросеть"
+echo "Локальные генеративные модели отсортированы по размеру загрузки."
+echo "Установщик уже отметил подходящие для сервера варианты."
 for i in "${!MODELS[@]}"; do
   MARK="требуется ≥${MODEL_RAM[i]} ГБ RAM"
   if (( RAM_GB >= MODEL_RAM[i] )); then MARK="подходит"; fi
   if (( i + 1 == RECOMMENDED )); then MARK="${MARK}, рекомендуется"; fi
-  printf "  %d) %-16s %-10s %s\n" "$((i+1))" "${MODELS[i]}" "${MODEL_SIZE[i]}" "$MARK"
+  printf "  %2d) %-21s %-9s %-31s %s\n" "$((i+1))" "${MODELS[i]}" "${MODEL_SIZE[i]}" "${MODEL_INFO[i]}" "$MARK"
 done
-read -rp "Выберите модель [${RECOMMENDED}]: " MODEL_CHOICE
-MODEL_CHOICE=${MODEL_CHOICE:-$RECOMMENDED}
-if [[ ! "$MODEL_CHOICE" =~ ^[1-6]$ ]]; then echo "Некорректный выбор"; exit 1; fi
-MODEL=${MODELS[$((MODEL_CHOICE-1))]}
-if (( RAM_GB < MODEL_RAM[MODEL_CHOICE-1] )); then
-  read -rp "Модель может не поместиться в память. Продолжить? [y/N]: " FORCE_MODEL
-  [[ ${FORCE_MODEL,,} == "y" ]] || exit 1
-fi
+echo "   0) Любая модель Ollama ввести точное название или тег вручную"
+MODEL_COUNT=${#MODELS[@]}
+while true; do
+  read -rp "Введите номер модели [${RECOMMENDED}]: " MODEL_CHOICE
+  MODEL_CHOICE=${MODEL_CHOICE:-$RECOMMENDED}
+  if [[ "$MODEL_CHOICE" == "0" ]]; then
+    echo "Каталог: https://ollama.com/library"
+    echo "Пример названия: qwen2.5-coder:1.5b"
+    read -rp "Название модели Ollama: " CUSTOM_MODEL
+    if [[ ! "$CUSTOM_MODEL" =~ ^[a-zA-Z0-9._/-]+(:[a-zA-Z0-9._-]+)?$ ]]; then
+      echo "Ошибка: некорректное название модели."
+      continue
+    fi
+    MODEL=$CUSTOM_MODEL
+    break
+  fi
+  if [[ ! "$MODEL_CHOICE" =~ ^[1-9][0-9]*$ ]] || (( MODEL_CHOICE < 1 || MODEL_CHOICE > MODEL_COUNT )); then
+    echo "Ошибка: введите число от 0 до ${MODEL_COUNT}."
+    continue
+  fi
+  if (( RAM_GB < MODEL_RAM[MODEL_CHOICE-1] )); then
+    read -rp "Для этой модели мало RAM. Всё равно выбрать её? [y/N]: " FORCE_MODEL
+    if [[ ${FORCE_MODEL,,} != "y" ]]; then
+      echo "Выберите другую модель."
+      continue
+    fi
+  fi
+  MODEL=${MODELS[$((MODEL_CHOICE-1))]}
+  break
+done
 
 if (( DISK_GB < 10 )); then echo "Нужно минимум 10 ГБ свободного места"; exit 1; fi
 
@@ -271,7 +391,6 @@ const config = {
 };
 fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
 NODE
-unset ADMIN_PASSWORD
 
 echo "Загружаю модель ${MODEL}…"
 ollama pull "$MODEL"
@@ -338,7 +457,11 @@ fi
 echo ""
 echo "Готово."
 echo "Панель: https://${DOMAIN}/auth/"
+echo "Логин панели: ${ADMIN_USERNAME}"
+echo "Пароль панели: ${ADMIN_PASSWORD}"
+echo "Сохраните логин и пароль. Пароль повторно не показывается."
 echo "API: https://${DOMAIN}/v1/chat/completions"
 echo "Модель: ${MODEL}"
 if [[ "$DUCKDNS_ENABLED" == true ]]; then echo "DuckDNS: обновление IP каждые 5 минут"; fi
 echo "Статус: pm2 status"
+unset ADMIN_PASSWORD
