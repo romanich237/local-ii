@@ -36,7 +36,7 @@
 - открытые порты `80` и `443`;
 - минимум 4 ГБ RAM;
 - минимум 10 ГБ свободного места;
-- доступ сервера к приватному GitHub-репозиторию.
+- GitHub Personal Access Token с доступом на чтение репозитория.
 
 Видеокарта не обязательна. Без GPU модель будет работать на процессоре, но медленнее.
 
@@ -98,44 +98,46 @@ systemctl list-timers local-ii-duckdns.timer
 sudo /usr/local/bin/local-ii-duckdns
 ```
 
-## 2. Настройте доступ к приватному репозиторию
+## 2. Подготовьте GitHub Token
 
-Рекомендуется использовать SSH-ключ. На сервере выполните:
+Репозиторий приватный, поэтому для скачивания понадобится Personal Access Token:
 
-```bash
-ssh-keygen -t ed25519 -C "local-ii-server"
-cat ~/.ssh/id_ed25519.pub
-```
+1. откройте GitHub;
+2. перейдите в `Settings → Developer settings → Personal access tokens`;
+3. создайте Fine-grained token;
+4. выберите репозиторий `romanich237/local-ii`;
+5. выдайте разрешение `Contents: Read-only`;
+6. сохраните токен — GitHub покажет его только один раз.
 
-Добавьте показанный публичный ключ в GitHub:
-
-```text
-GitHub → Settings → SSH and GPG keys → New SSH key
-```
-
-Проверьте подключение:
-
-```bash
-ssh -T git@github.com
-```
+Токен понадобится вместо пароля GitHub при клонировании и ещё один раз в установщике для настройки автообновления.
 
 ## 3. Установите Local AI Server
 
 ```bash
 cd /root
-git clone git@github.com:romanich237/local-ii.git
+git clone https://github.com/romanich237/local-ii.git
 cd local-ii
 sudo bash install.sh
 ```
 
+Во время `git clone` введите:
+
+```text
+Username: romanich237
+Password: ваш GitHub Token
+```
+
+Обычный пароль от GitHub использовать не нужно.
+
 Установщик попросит:
 
-1. домен без `https://`;
-2. токен DuckDNS, если указан домен `*.duckdns.org`;
-3. email для Let's Encrypt;
-4. логин веб-панели длиной 10–15 символов;
-5. пароль веб-панели длиной 10–15 символов;
-6. базовую модель.
+1. GitHub Token для автообновления, если Git не сохранил авторизацию;
+2. домен без `https://`;
+3. токен DuckDNS, если указан домен `*.duckdns.org`;
+4. email для Let's Encrypt;
+5. логин веб-панели длиной 10–15 символов;
+6. пароль веб-панели длиной 10–15 символов;
+7. базовую модель.
 
 Затем установщик автоматически:
 
@@ -144,6 +146,7 @@ sudo bash install.sh
 - установит Node.js 20, PM2, Ollama, Nginx и Certbot;
 - скачает выбранную модель;
 - создаст `config.json`;
+- сохранит GitHub Token в `/etc/local-ii/github-credentials` с правами `600`;
 - создаст отдельный конфиг `/etc/nginx/sites-available/local-ii.conf`;
 - проверит, не занят ли домен другим проектом;
 - запустит API и автообновление через PM2;
@@ -309,7 +312,7 @@ systemctl status nginx
 3. выполняет `npm ci --omit=dev`;
 4. перезапускает API через PM2.
 
-Для автообновления сервер должен сохранять доступ к приватному репозиторию по SSH.
+Для автообновления используется HTTPS и GitHub Token из защищённого файла `/etc/local-ii/github-credentials`. Токен не добавляется в адрес `origin` и не попадает в репозиторий.
 
 Отключить автообновление можно в `config.json`:
 
@@ -368,6 +371,7 @@ pm2 restart local-ai-api local-ai-updater
 | SQLite | `data/local-ai.db` |
 | Nginx | `/etc/nginx/sites-available/local-ii.conf` |
 | Настройки DuckDNS | `/etc/local-ii/duckdns.env` |
+| Доступ GitHub | `/etc/local-ii/github-credentials` |
 | Модели Ollama | каталог Ollama |
 | Логи | `pm2 logs` |
 

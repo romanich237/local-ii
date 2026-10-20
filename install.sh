@@ -14,6 +14,30 @@ if [[ ${ID:-} != "ubuntu" || ${VERSION_ID:-} != "22.04" ]]; then
 fi
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REMOTE_URL=$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)
+if [[ "$REMOTE_URL" =~ ^https://[^/]+@github\.com/ ]]; then
+  git -C "$APP_DIR" remote set-url origin https://github.com/romanich237/local-ii.git
+  REMOTE_URL=https://github.com/romanich237/local-ii.git
+fi
+if [[ "$REMOTE_URL" == https://github.com/* ]]; then
+  if ! GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote origin HEAD >/dev/null 2>&1; then
+    echo "Для автообновления приватного репозитория нужен GitHub Personal Access Token."
+    read -rsp "GitHub Token: " GITHUB_TOKEN; echo
+    if [[ ! "$GITHUB_TOKEN" =~ ^[a-zA-Z0-9_]{20,255}$ ]]; then
+      echo "Некорректный GitHub Token"; exit 1
+    fi
+    install -d -m 700 /etc/local-ii
+    printf "https://romanich237:%s@github.com\n" "$GITHUB_TOKEN" > /etc/local-ii/github-credentials
+    chmod 600 /etc/local-ii/github-credentials
+    git -C "$APP_DIR" config --local credential.helper "store --file=/etc/local-ii/github-credentials"
+    unset GITHUB_TOKEN
+    if ! GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote origin HEAD >/dev/null 2>&1; then
+      echo "GitHub Token не подходит или не имеет доступа к romanich237/local-ii."
+      exit 1
+    fi
+    echo "Доступ к GitHub для автообновления настроен."
+  fi
+fi
 RAM_GB=$(awk '/MemTotal/{printf "%d", ($2/1024/1024)+0.5}' /proc/meminfo)
 CPU_CORES=$(nproc)
 DISK_GB=$(df -BG "$APP_DIR" | awk 'NR==2{gsub("G","",$4); print $4}')
