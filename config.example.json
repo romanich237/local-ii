@@ -2,7 +2,7 @@
   "port": 1488,
   "domain": "ai.example.com",
   "ollamaUrl": "http://127.0.0.1:11434",
-  "defaultModel": "qwen3:8b",
+  "defaultModel": "qwen3.5:4b",
   "adminPasswordHash": "",
   "sessionSecret": "replace-with-random-secret",
   "trustProxy": true,
