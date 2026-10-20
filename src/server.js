@@ -2,6 +2,7 @@
 
 const express = require('express');
 const helmet = require('helmet');
+const path = require('node:path');
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
 const { createApiKey, hashApiKey, verifyPassword, signSession, verifySession } = require('./security');
@@ -11,8 +12,9 @@ const config = loadConfig();
 const app = express();
 if (config.trustProxy) app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], scriptSrc: ["'self'", "'unsafe-inline'"] } } }));
+app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'none'"] } } }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
+app.use('/assets', express.static(path.join(config.root, 'public'), { fallthrough: false, maxAge: '1h' }));
 
 const loginAttempts = new Map();
 function cookieMap(req) {
@@ -21,6 +23,8 @@ function cookieMap(req) {
   } catch { return {}; }
 }
 function isAdmin(req) { return verifySession(cookieMap(req).lai_session, config.sessionSecret); }
+function selectedTheme(req) { return cookieMap(req).lai_theme === 'light' ? 'light' : 'dark'; }
+function isSecure(req) { return req.secure || req.get('x-forwarded-proto') === 'https'; }
 function requireAdmin(req, res, next) { return isAdmin(req) ? next() : res.redirect('/auth/login'); }
 function bearer(req) {
   const value = req.get('authorization') || '';
@@ -29,7 +33,14 @@ function bearer(req) {
 function estimateTokens(value) { return Math.ceil(JSON.stringify(value ?? '').length / 4); }
 
 app.get('/', (_req, res) => res.json({ service: 'Local AI Server', status: 'ok', base_url: config.baseUrl, models: `${config.baseUrl}/models`, docs: '/docs', panel: '/auth/' }));
-app.get('/docs', (_req, res) => res.send(docsPage({ baseUrl: config.baseUrl, model: config.defaultModel })));
+app.get('/docs', (req, res) => res.send(docsPage({ baseUrl: config.baseUrl, model: config.defaultModel, theme: selectedTheme(req) })));
+app.get('/theme/:theme', (req, res) => {
+  if (!['dark', 'light'].includes(req.params.theme)) return res.status(400).send('Неизвестная тема');
+  const allowed = ['/docs', '/auth/', '/auth/login'];
+  const next = allowed.includes(req.query.next) ? req.query.next : '/docs';
+  res.cookie('lai_theme', req.params.theme, { httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 365 * 86400_000, path: '/' });
+  res.redirect(next);
+});
 app.get('/health', async (_req, res) => {
   try {
     const upstream = await fetch(`${config.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
@@ -104,21 +115,21 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
   }
 });
 
-app.get('/auth/login', (req, res) => isAdmin(req) ? res.redirect('/auth/') : res.send(loginPage()));
+app.get('/auth/login', (req, res) => isAdmin(req) ? res.redirect('/auth/') : res.send(loginPage({ theme: selectedTheme(req) })));
 app.post('/auth/login', (req, res) => {
   const ip = req.ip;
   const state = loginAttempts.get(ip) || { count: 0, blockedUntil: 0 };
-  if (state.blockedUntil > Date.now()) return res.status(429).send(loginPage('Слишком много попыток. Повторите через 15 минут.'));
+  if (state.blockedUntil > Date.now()) return res.status(429).send(loginPage({ error: 'Слишком много попыток. Повторите через 15 минут.', theme: selectedTheme(req) }));
   const validUsername = String(req.body.username || '') === config.adminUsername;
   const validPassword = verifyPassword(req.body.password || '', config.adminPasswordHash);
   if (!validUsername || !validPassword) {
     state.count += 1;
     if (state.count >= 5) { state.blockedUntil = Date.now() + 15 * 60_000; state.count = 0; }
     loginAttempts.set(ip, state);
-    return res.status(401).send(loginPage('Неверный пароль'));
+    return res.status(401).send(loginPage({ error: 'Неверный логин или пароль', theme: selectedTheme(req) }));
   }
   loginAttempts.delete(ip);
-  const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+  const secure = isSecure(req);
   res.cookie('lai_session', signSession(config.sessionSecret), { httpOnly: true, sameSite: 'strict', secure, maxAge: 86400_000, path: '/auth' });
   res.redirect('/auth/');
 });
@@ -126,7 +137,7 @@ app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: 
 app.get('/auth/', requireAdmin, (req, res) => {
   const newKey = cookieMap(req).lai_new_key || '';
   if (newKey) res.clearCookie('lai_new_key', { path: '/auth' });
-  res.send(dashboard({ keys: statements.listKeys.all(), totals: statements.totals.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey }));
+  res.send(dashboard({ keys: statements.listKeys.all(), totals: statements.totals.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey, theme: selectedTheme(req) }));
 });
 app.post('/auth/keys', requireAdmin, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 60);
@@ -134,7 +145,7 @@ app.post('/auth/keys', requireAdmin, (req, res) => {
   if (!name) return res.status(400).send('Название обязательно');
   const key = createApiKey();
   statements.createKey.run(name, hashApiKey(key), key.slice(0, 12), monthlyLimit);
-  res.cookie('lai_new_key', key, { httpOnly: true, sameSite: 'strict', secure: req.secure || req.get('x-forwarded-proto') === 'https', maxAge: 60_000, path: '/auth' });
+  res.cookie('lai_new_key', key, { httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 60_000, path: '/auth' });
   res.redirect('/auth/');
 });
 app.post('/auth/keys/:id/toggle', requireAdmin, (req, res) => {

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru" data-theme="{{THEME}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Документация | Local AI Server</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark brand-mark-small">AI</span><span>Local AI Server</span></a>
+    <nav class="nav-links" aria-label="Главное меню"><a href="/auth/">Админ-панель</a><a href="{{THEME_URL}}">{{THEME_LABEL}}</a></nav>
+  </header>
+  <main class="container docs-container">
+    <section class="hero"><div><p class="eyebrow">Документация</p><h1>OpenAI-совместимый API</h1><p class="lead">Подключите приложение к локальной модели через знакомый формат запросов.</p></div></section>
+    <section class="card docs-card">
+      <h2>Подключение</h2>
+      <dl class="details"><div><dt>Base URL</dt><dd><code>{{BASE_URL}}</code></dd></div><div><dt>Модель</dt><dd><code>{{MODEL}}</code></dd></div><div><dt>Авторизация</dt><dd><code>Bearer ВАШ_API_КЛЮЧ</code></dd></div></dl>
+      <p>Создайте ключ в <a href="/auth/">админ-панели</a> и передавайте его в заголовке Authorization.</p>
+    </section>
+    <section class="card docs-card"><h2>Пример запроса</h2><pre><code>{{CURL}}</code></pre></section>
+    <section class="card docs-card">
+      <h2>Маршруты</h2>
+      <div class="route"><code>POST /v1/chat/completions</code><span>Генерация ответа</span></div>
+      <div class="route"><code>GET /v1/models</code><span>Список установленных моделей</span></div>
+      <div class="route"><code>GET /health</code><span>Проверка сервера и Ollama</span></div>
+    </section>
+  </main>
+</body>
+</html>

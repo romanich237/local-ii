@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru" data-theme="{{THEME}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Вход | Local AI Server</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="login-body">
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark">AI</div>
+      <p class="eyebrow">Local AI Server</p>
+      <h1>Панель управления</h1>
+      <p class="lead">Войдите, чтобы управлять API-ключами и расходом токенов.</p>
+      {{ERROR}}
+      <form class="stack" method="post" action="/auth/login">
+        <label>Логин<input name="username" type="text" autocomplete="username" minlength="10" maxlength="15" required autofocus></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" minlength="10" maxlength="15" required></label>
+        <button class="button button-primary" type="submit">Войти</button>
+      </form>
+      <nav class="login-links" aria-label="Дополнительные ссылки">
+        <a href="/docs">Документация API</a>
+        <a href="{{THEME_URL}}">{{THEME_LABEL}}</a>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>
