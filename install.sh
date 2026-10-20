@@ -384,7 +384,24 @@ DUCKDNS_TIMER
 fi
 
 install_node
-if ! command -v pm2 >/dev/null 2>&1; then npm install -g pm2; fi
+export PATH="/usr/local/bin:${PATH}"
+if ! command -v pm2 >/dev/null 2>&1; then
+  npm install -g pm2
+  hash -r
+fi
+if ! command -v pm2 >/dev/null 2>&1; then
+  PM2_SOURCE="$(npm root -g)/pm2/bin/pm2"
+  if [[ -f "$PM2_SOURCE" ]]; then
+    ln -sfn "$PM2_SOURCE" /usr/local/bin/pm2
+    chmod +x "$PM2_SOURCE"
+    hash -r
+  fi
+fi
+if ! command -v pm2 >/dev/null 2>&1; then
+  echo "PM2 установлен, но исполняемый файл не найден."
+  echo "Глобальная папка npm: $(npm root -g)"
+  exit 1
+fi
 if ! command -v ollama >/dev/null 2>&1; then curl -fsSL https://ollama.com/install.sh | sh; fi
 systemctl enable --now ollama
 
