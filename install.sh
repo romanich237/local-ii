@@ -35,6 +35,18 @@ read -rp "Домен без https:// (например ai.example.com): " DOMAIN
 if [[ ! "$DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
   echo "Некорректный домен"; exit 1
 fi
+DUCKDNS_ENABLED=false
+DUCKDNS_SUBDOMAIN=""
+DUCKDNS_TOKEN=""
+if [[ "$DOMAIN" =~ ^([a-zA-Z0-9-]+)\.duckdns\.org$ ]]; then
+  DUCKDNS_ENABLED=true
+  DUCKDNS_SUBDOMAIN="${BASH_REMATCH[1]}"
+  echo "Обнаружен домен DuckDNS: ${DOMAIN}"
+  read -rsp "Токен DuckDNS: " DUCKDNS_TOKEN; echo
+  if [[ ! "$DUCKDNS_TOKEN" =~ ^[a-zA-Z0-9-]{20,80}$ ]]; then
+    echo "Некорректный токен DuckDNS"; exit 1
+  fi
+fi
 read -rp "Email для Let's Encrypt: " SSL_EMAIL
 if [[ ! "$SSL_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
   echo "Некорректный email"; exit 1
@@ -78,6 +90,61 @@ if (( DISK_GB < 10 )); then echo "Нужно минимум 10 ГБ свобод
 echo "Устанавливаю системные зависимости…"
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx certbot python3-certbot-nginx ca-certificates gnupg build-essential
+
+if [[ "$DUCKDNS_ENABLED" == true ]]; then
+  echo "Настраиваю автоматическое обновление DuckDNS…"
+  install -d -m 700 /etc/local-ii
+  {
+    printf "DUCKDNS_SUBDOMAIN='%s'\n" "$DUCKDNS_SUBDOMAIN"
+    printf "DUCKDNS_TOKEN='%s'\n" "$DUCKDNS_TOKEN"
+  } > /etc/local-ii/duckdns.env
+  chmod 600 /etc/local-ii/duckdns.env
+
+  cat > /usr/local/bin/local-ii-duckdns <<'DUCKDNS_SCRIPT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+source /etc/local-ii/duckdns.env
+RESULT=$(curl -fsS --max-time 20 "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN}&token=${DUCKDNS_TOKEN}&ip=")
+if [[ "$RESULT" != "OK" ]]; then
+  echo "DuckDNS вернул: $RESULT" >&2
+  exit 1
+fi
+DUCKDNS_SCRIPT
+  chmod 700 /usr/local/bin/local-ii-duckdns
+
+  cat > /etc/systemd/system/local-ii-duckdns.service <<'DUCKDNS_SERVICE'
+[Unit]
+Description=Обновление IP-адреса Local II в DuckDNS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/local-ii-duckdns
+DUCKDNS_SERVICE
+
+  cat > /etc/systemd/system/local-ii-duckdns.timer <<'DUCKDNS_TIMER'
+[Unit]
+Description=Обновление DuckDNS каждые 5 минут
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+DUCKDNS_TIMER
+
+  if ! /usr/local/bin/local-ii-duckdns; then
+    echo "Не удалось обновить DuckDNS. Проверьте поддомен и токен."
+    exit 1
+  fi
+  systemctl daemon-reload
+  systemctl enable --now local-ii-duckdns.timer
+  unset DUCKDNS_TOKEN
+  echo "DuckDNS обновлён, таймер запущен."
+fi
 
 if ! command -v node >/dev/null 2>&1 || [[ $(node -p 'Number(process.versions.node.split(".")[0])') -lt 20 ]]; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -163,4 +230,5 @@ echo "Готово."
 echo "Панель: https://${DOMAIN}/auth/"
 echo "API: https://${DOMAIN}/v1/chat/completions"
 echo "Модель: ${MODEL}"
+if [[ "$DUCKDNS_ENABLED" == true ]]; then echo "DuckDNS: обновление IP каждые 5 минут"; fi
 echo "Статус: pm2 status"

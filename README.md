@@ -23,6 +23,7 @@
 - автоматический выбор подходящей модели по характеристикам сервера;
 - отдельная конфигурация Nginx без изменения других сайтов;
 - автоматический выпуск SSL-сертификата Let's Encrypt;
+- встроенная поддержка обычных доменов и DuckDNS;
 - запуск и восстановление процессов через PM2;
 - автоматическое обновление из GitHub каждую минуту;
 - SQLite без отдельной установки сервера базы данных.
@@ -58,6 +59,45 @@
 nslookup ai.example.com
 ```
 
+### Использование DuckDNS
+
+Если собственного домена нет, можно использовать бесплатный поддомен DuckDNS:
+
+1. откройте [duckdns.org](https://www.duckdns.org/);
+2. войдите через предложенный сервис;
+3. создайте поддомен, например `my-local-ai`;
+4. итоговый адрес будет `my-local-ai.duckdns.org`;
+5. скопируйте токен со страницы DuckDNS.
+
+Во время установки укажите полный домен:
+
+```text
+my-local-ai.duckdns.org
+```
+
+Установщик автоматически распознает DuckDNS и отдельно запросит токен. После этого он:
+
+- привяжет поддомен к текущему внешнему IP сервера;
+- сохранит токен в `/etc/local-ii/duckdns.env` с правами `600`;
+- создаст systemd-таймер `local-ii-duckdns.timer`;
+- будет обновлять IP в DuckDNS каждые 5 минут;
+- выпустит обычный SSL-сертификат для `my-local-ai.duckdns.org`.
+
+Токен DuckDNS не сохраняется в проекте и не загружается в GitHub.
+
+Проверить таймер:
+
+```bash
+systemctl status local-ii-duckdns.timer
+systemctl list-timers local-ii-duckdns.timer
+```
+
+Обновить IP вручную:
+
+```bash
+sudo /usr/local/bin/local-ii-duckdns
+```
+
 ## 2. Настройте доступ к приватному репозиторию
 
 Рекомендуется использовать SSH-ключ. На сервере выполните:
@@ -91,10 +131,11 @@ sudo bash install.sh
 Установщик попросит:
 
 1. домен без `https://`;
-2. email для Let's Encrypt;
-3. логин веб-панели длиной 10–15 символов;
-4. пароль веб-панели длиной 10–15 символов;
-5. базовую модель.
+2. токен DuckDNS, если указан домен `*.duckdns.org`;
+3. email для Let's Encrypt;
+4. логин веб-панели длиной 10–15 символов;
+5. пароль веб-панели длиной 10–15 символов;
+6. базовую модель.
 
 Затем установщик автоматически:
 
@@ -326,6 +367,7 @@ pm2 restart local-ai-api local-ai-updater
 | Конфигурация | `config.json` |
 | SQLite | `data/local-ai.db` |
 | Nginx | `/etc/nginx/sites-available/local-ii.conf` |
+| Настройки DuckDNS | `/etc/local-ii/duckdns.env` |
 | Модели Ollama | каталог Ollama |
 | Логи | `pm2 logs` |
 
@@ -355,6 +397,28 @@ tar -czf local-ii-backup.tar.gz config.json data/
 
 ```bash
 sudo certbot --nginx -d ai.example.com
+```
+
+### DuckDNS не обновляет IP
+
+Проверьте сервис и таймер:
+
+```bash
+systemctl status local-ii-duckdns.service
+systemctl status local-ii-duckdns.timer
+journalctl -u local-ii-duckdns.service --lines 50
+```
+
+Запустите обновление вручную:
+
+```bash
+sudo /usr/local/bin/local-ii-duckdns
+```
+
+Если команда завершается ошибкой, проверьте поддомен и токен в:
+
+```text
+/etc/local-ii/duckdns.env
 ```
 
 ### Домен уже используется
