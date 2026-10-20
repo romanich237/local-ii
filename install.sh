@@ -130,11 +130,21 @@ echo ""
 
 echo ""
 echo "1. Домен"
-echo "Введите домен без https:// и без слеша в конце. Пример: ai.cyxap.top"
+echo "Можно вставить домен или полный URL. Пример: https://ai.example.com/"
 while true; do
-  read -rp "Домен: " DOMAIN
-  if [[ "$DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then break; fi
-  echo "Ошибка: нужен домен вида ai.example.com. Попробуйте ещё раз."
+  read -rp "Домен или URL: " RAW_DOMAIN
+  DOMAIN=$(printf '%s' "$RAW_DOMAIN" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  DOMAIN=${DOMAIN#http://}
+  DOMAIN=${DOMAIN#https://}
+  DOMAIN=${DOMAIN%%/*}
+  DOMAIN=${DOMAIN%%\?*}
+  DOMAIN=${DOMAIN%%\#*}
+  DOMAIN=${DOMAIN%.}
+  if [[ "$DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
+    echo "Распознан домен: ${DOMAIN}"
+    break
+  fi
+  echo "Ошибка: нужен адрес вида ai.example.com или https://ai.example.com/. Попробуйте ещё раз."
 done
 DUCKDNS_ENABLED=false
 DUCKDNS_SUBDOMAIN=""
@@ -152,9 +162,11 @@ fi
 
 echo ""
 echo "2. Email для SSL-сертификата"
-echo "Пример: admin@example.com"
+echo "Нажмите Enter, чтобы использовать 1234@gmail.com."
 while true; do
-  read -rp "Email: " SSL_EMAIL
+  read -rp "Email [1234@gmail.com]: " SSL_EMAIL
+  SSL_EMAIL=${SSL_EMAIL:-1234@gmail.com}
+  SSL_EMAIL=$(printf '%s' "$SSL_EMAIL" | tr -d '[:space:]')
   if [[ "$SSL_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then break; fi
   echo "Ошибка: введите полный email, например admin@example.com."
 done
