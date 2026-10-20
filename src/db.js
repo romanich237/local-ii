@@ -5,9 +5,20 @@ const path = require('node:path');
 const Database = require('better-sqlite3');
 const { root } = require('./config');
 
-const dataDir = path.join(root, 'data');
-fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-const db = new Database(path.join(dataDir, 'local-ai.db'));
+const dbPath = path.join(root, 'data.db');
+const legacyDbPath = path.join(root, 'data', 'local-ai.db');
+
+if (!fs.existsSync(dbPath) && fs.existsSync(legacyDbPath)) {
+  for (const suffix of ['', '-wal', '-shm']) {
+    const source = `${legacyDbPath}${suffix}`;
+    const destination = `${dbPath}${suffix}`;
+    if (fs.existsSync(source)) fs.renameSync(source, destination);
+  }
+  console.log('SQLite: база перенесена из data/local-ai.db в data.db');
+}
+
+const db = new Database(dbPath);
+fs.chmodSync(dbPath, 0o600);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(`

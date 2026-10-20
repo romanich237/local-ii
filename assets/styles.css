@@ -766,3 +766,4 @@ html[data-theme="light"] pre { background: #2c180d; color: #fff1e3; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+

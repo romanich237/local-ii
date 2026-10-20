@@ -14,7 +14,7 @@ if (config.trustProxy) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'none'"] } } }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
-app.use('/assets', express.static(path.join(config.root, 'public'), { fallthrough: false, maxAge: '1h' }));
+app.use('/assets', express.static(path.join(config.root, 'assets'), { fallthrough: false, maxAge: '1h' }));
 
 const loginAttempts = new Map();
 function cookieMap(req) {
