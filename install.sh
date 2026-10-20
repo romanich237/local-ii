@@ -39,8 +39,14 @@ read -rp "Email для Let's Encrypt: " SSL_EMAIL
 if [[ ! "$SSL_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
   echo "Некорректный email"; exit 1
 fi
-read -rsp "Пароль веб-панели (минимум 12 символов): " ADMIN_PASSWORD; echo
-if (( ${#ADMIN_PASSWORD} < 12 )); then echo "Пароль слишком короткий"; exit 1; fi
+read -rp "Логин веб-панели (10–15 символов, латиница/цифры/_/-): " ADMIN_USERNAME
+if [[ ! "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_-]{10,15}$ ]]; then
+  echo "Логин должен содержать 10–15 символов: латинские буквы, цифры, _ или -"; exit 1
+fi
+read -rsp "Пароль веб-панели (10–15 символов): " ADMIN_PASSWORD; echo
+if (( ${#ADMIN_PASSWORD} < 10 || ${#ADMIN_PASSWORD} > 15 )); then
+  echo "Пароль должен содержать от 10 до 15 символов"; exit 1
+fi
 
 MODELS=("qwen3.5:0.8b" "qwen3.5:2b" "qwen3.5:4b" "qwen3.5:9b" "qwen3.5:27b" "qwen3.5:35b")
 MODEL_RAM=(4 6 8 12 28 32)
@@ -84,15 +90,17 @@ systemctl enable --now ollama
 cd "$APP_DIR"
 npm ci --omit=dev
 
-ADMIN_PASSWORD="$ADMIN_PASSWORD" node - "$DOMAIN" "$MODEL" <<'NODE'
+ADMIN_PASSWORD="$ADMIN_PASSWORD" node - "$DOMAIN" "$MODEL" "$ADMIN_USERNAME" <<'NODE'
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { hashPassword } = require('./src/security');
 const config = {
   port: 1488,
   domain: process.argv[2],
+  baseUrl: `https://${process.argv[2]}/v1`,
   ollamaUrl: 'http://127.0.0.1:11434',
   defaultModel: process.argv[3],
+  adminUsername: process.argv[4],
   adminPasswordHash: hashPassword(process.env.ADMIN_PASSWORD),
   sessionSecret: crypto.randomBytes(48).toString('base64url'),
   trustProxy: true,
@@ -107,7 +115,17 @@ unset ADMIN_PASSWORD
 echo "Загружаю модель ${MODEL}…"
 ollama pull "$MODEL"
 
-cat > "/etc/nginx/sites-available/local-ai-server" <<NGINX
+NGINX_CONFIG="/etc/nginx/sites-available/local-ii.conf"
+NGINX_LINK="/etc/nginx/sites-enabled/local-ii.conf"
+rm -f /etc/nginx/sites-enabled/local-ai-server /etc/nginx/sites-available/local-ai-server
+CONFLICT=$(grep -RIlF "server_name ${DOMAIN}" /etc/nginx/sites-enabled --exclude='local-ii.conf' 2>/dev/null | head -1 || true)
+if [[ -n "$CONFLICT" ]]; then
+  echo "Домен уже используется другим конфигом Nginx: ${CONFLICT}"
+  echo "Установка остановлена, чужой конфиг не изменён."
+  exit 1
+fi
+
+cat > "$NGINX_CONFIG" <<NGINX
 server {
     listen 80;
     listen [::]:80;
@@ -126,7 +144,7 @@ server {
     }
 }
 NGINX
-ln -sfn /etc/nginx/sites-available/local-ai-server /etc/nginx/sites-enabled/local-ai-server
+ln -sfn "$NGINX_CONFIG" "$NGINX_LINK"
 nginx -t
 systemctl reload nginx
 

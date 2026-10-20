@@ -7,8 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "update": "node src/updater.js",
-    "check": "node --check src/server.js && node --check src/db.js && node --check src/updater.js",
-    "test": "node --test"
+    "check": "node --check src/server.js && node --check src/db.js && node --check src/security.js && node --check src/ui.js && node --check src/updater.js"
   },
   "engines": {
     "node": ">=20"

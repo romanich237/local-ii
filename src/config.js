@@ -11,7 +11,17 @@ function loadConfig() {
     throw new Error('Не найден config.json. Запустите sudo bash install.sh');
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  for (const field of ['port', 'ollamaUrl', 'defaultModel', 'adminPasswordHash', 'sessionSecret']) {
+  let migrated = false;
+  if (!config.baseUrl && config.domain) {
+    config.baseUrl = `https://${config.domain}/v1`;
+    migrated = true;
+  }
+  if (!config.adminUsername) {
+    config.adminUsername = 'administrator';
+    migrated = true;
+  }
+  if (migrated) fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+  for (const field of ['port', 'domain', 'baseUrl', 'ollamaUrl', 'defaultModel', 'adminUsername', 'adminPasswordHash', 'sessionSecret']) {
     if (!config[field]) throw new Error(`В config.json отсутствует поле ${field}`);
   }
   return { ...config, root, configPath };

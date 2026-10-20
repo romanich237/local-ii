@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
 const { createApiKey, hashApiKey, verifyPassword, signSession, verifySession } = require('./security');
-const { loginPage, dashboard } = require('./ui');
+const { loginPage, dashboard, docsPage } = require('./ui');
 
 const config = loadConfig();
 const app = express();
@@ -28,7 +28,8 @@ function bearer(req) {
 }
 function estimateTokens(value) { return Math.ceil(JSON.stringify(value ?? '').length / 4); }
 
-app.get('/', (_req, res) => res.json({ service: 'Local AI Server', status: 'ok', docs: '/v1/models', panel: '/auth/' }));
+app.get('/', (_req, res) => res.json({ service: 'Local AI Server', status: 'ok', base_url: config.baseUrl, models: `${config.baseUrl}/models`, docs: '/docs', panel: '/auth/' }));
+app.get('/docs', (_req, res) => res.send(docsPage({ baseUrl: config.baseUrl, model: config.defaultModel })));
 app.get('/health', async (_req, res) => {
   try {
     const upstream = await fetch(`${config.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
@@ -108,7 +109,9 @@ app.post('/auth/login', (req, res) => {
   const ip = req.ip;
   const state = loginAttempts.get(ip) || { count: 0, blockedUntil: 0 };
   if (state.blockedUntil > Date.now()) return res.status(429).send(loginPage('Слишком много попыток. Повторите через 15 минут.'));
-  if (!verifyPassword(req.body.password || '', config.adminPasswordHash)) {
+  const validUsername = String(req.body.username || '') === config.adminUsername;
+  const validPassword = verifyPassword(req.body.password || '', config.adminPasswordHash);
+  if (!validUsername || !validPassword) {
     state.count += 1;
     if (state.count >= 5) { state.blockedUntil = Date.now() + 15 * 60_000; state.count = 0; }
     loginAttempts.set(ip, state);
@@ -123,7 +126,7 @@ app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: 
 app.get('/auth/', requireAdmin, (req, res) => {
   const newKey = cookieMap(req).lai_new_key || '';
   if (newKey) res.clearCookie('lai_new_key', { path: '/auth' });
-  res.send(dashboard({ keys: statements.listKeys.all(), totals: statements.totals.get(), recent: statements.recent.all(), model: config.defaultModel, newKey }));
+  res.send(dashboard({ keys: statements.listKeys.all(), totals: statements.totals.get(), recent: statements.recent.all(), model: config.defaultModel, baseUrl: config.baseUrl, newKey }));
 });
 app.post('/auth/keys', requireAdmin, (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 60);
