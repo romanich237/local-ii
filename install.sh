@@ -6,12 +6,100 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-if [[ ! -f /etc/os-release ]]; then echo "Не удалось определить ОС"; exit 1; fi
+if [[ ! -f /etc/os-release ]]; then echo "Не удалось определить Linux-дистрибутив"; exit 1; fi
 source /etc/os-release
-if [[ ${ID:-} != "ubuntu" || ${VERSION_ID:-} != "22.04" ]]; then
-  echo "Поддерживается Ubuntu 22.04. Текущая ОС: ${PRETTY_NAME:-неизвестна}"
+OS_NAME=${PRETTY_NAME:-${ID:-Linux}}
+
+if ! command -v systemctl >/dev/null 2>&1; then
+  echo "Нужен дистрибутив с systemd. Текущая система инициализации не поддерживается."
   exit 1
 fi
+
+if command -v apt-get >/dev/null 2>&1; then
+  PACKAGE_MANAGER=apt
+elif command -v dnf >/dev/null 2>&1; then
+  PACKAGE_MANAGER=dnf
+elif command -v yum >/dev/null 2>&1; then
+  PACKAGE_MANAGER=yum
+elif command -v pacman >/dev/null 2>&1; then
+  PACKAGE_MANAGER=pacman
+elif command -v zypper >/dev/null 2>&1; then
+  PACKAGE_MANAGER=zypper
+else
+  echo "Не найден поддерживаемый пакетный менеджер: apt, dnf, yum, pacman или zypper."
+  exit 1
+fi
+
+install_system_packages() {
+  case "$PACKAGE_MANAGER" in
+    apt)
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx ca-certificates xz-utils build-essential python3 python3-venv python3-pip
+      ;;
+    dnf)
+      dnf install -y curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip
+      ;;
+    yum)
+      yum install -y epel-release || true
+      yum install -y curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip
+      ;;
+    pacman)
+      pacman -Syu --noconfirm --needed curl git nginx ca-certificates xz base-devel python python-pip
+      ;;
+    zypper)
+      zypper --non-interactive refresh
+      zypper --non-interactive install curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip
+      ;;
+  esac
+}
+
+install_certbot() {
+  if command -v certbot >/dev/null 2>&1; then return; fi
+
+  case "$PACKAGE_MANAGER" in
+    apt) DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx && return ;;
+    dnf) dnf install -y certbot python3-certbot-nginx && return ;;
+    yum) yum install -y certbot python3-certbot-nginx && return ;;
+    pacman) pacman -S --noconfirm --needed certbot certbot-nginx && return ;;
+    zypper) zypper --non-interactive install certbot python3-certbot-nginx && return ;;
+  esac
+
+  echo "Пакет Certbot не найден. Устанавливаю его в отдельное Python-окружение…"
+  python3 -m venv /opt/local-ii-certbot
+  /opt/local-ii-certbot/bin/pip install --upgrade pip certbot certbot-nginx
+  ln -sfn /opt/local-ii-certbot/bin/certbot /usr/local/bin/certbot
+}
+
+install_node() {
+  local current_major=0 architecture node_arch checksums filename version temp_dir
+  if command -v node >/dev/null 2>&1; then
+    current_major=$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || echo 0)
+  fi
+  if (( current_major >= 24 )); then return; fi
+
+  architecture=$(uname -m)
+  case "$architecture" in
+    x86_64|amd64) node_arch=x64 ;;
+    aarch64|arm64) node_arch=arm64 ;;
+    *) echo "Поддерживаются архитектуры x86_64 и ARM64. Текущая: ${architecture}"; exit 1 ;;
+  esac
+
+  echo "Устанавливаю Node.js 24 LTS…"
+  checksums=$(curl -fsSL https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt)
+  filename=$(printf '%s\n' "$checksums" | awk -v arch="$node_arch" '$2 ~ ("linux-" arch "\\.tar\\.xz$") {print $2; exit}')
+  if [[ -z "$filename" ]]; then echo "Не удалось определить архив Node.js"; exit 1; fi
+  version=${filename#node-}
+  version=${version%-linux-*}
+  temp_dir=$(mktemp -d)
+  curl -fsSL "https://nodejs.org/dist/${version}/${filename}" -o "${temp_dir}/${filename}"
+  printf '%s\n' "$checksums" | grep "  ${filename}$" | (cd "$temp_dir" && sha256sum -c -)
+  install -d /usr/local/lib/nodejs
+  tar -xJf "${temp_dir}/${filename}" -C /usr/local/lib/nodejs
+  for executable in node npm npx corepack; do
+    ln -sfn "/usr/local/lib/nodejs/${filename%.tar.xz}/bin/${executable}" "/usr/local/bin/${executable}"
+  done
+  rm -rf "$temp_dir"
+}
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REMOTE_URL=$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)
@@ -51,6 +139,7 @@ fi
 
 echo ""
 echo "Local AI Server — установка"
+echo "Система: ${OS_NAME} | Пакеты: ${PACKAGE_MANAGER}"
 echo "CPU: ${CPU_CORES} ядер | RAM: ${RAM_GB} ГБ | Свободно: ${DISK_GB} ГБ"
 echo "GPU: ${GPU_NAME} | VRAM: ${VRAM_GB} ГБ"
 echo ""
@@ -112,8 +201,8 @@ fi
 if (( DISK_GB < 10 )); then echo "Нужно минимум 10 ГБ свободного места"; exit 1; fi
 
 echo "Устанавливаю системные зависимости…"
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx certbot python3-certbot-nginx ca-certificates gnupg build-essential
+install_system_packages
+install_certbot
 
 if [[ "$DUCKDNS_ENABLED" == true ]]; then
   echo "Настраиваю автоматическое обновление DuckDNS…"
@@ -170,10 +259,7 @@ DUCKDNS_TIMER
   echo "DuckDNS обновлён, таймер запущен."
 fi
 
-if ! command -v node >/dev/null 2>&1 || [[ $(node -p 'Number(process.versions.node.split(".")[0])') -lt 20 ]]; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  apt-get install -y nodejs
-fi
+install_node
 if ! command -v pm2 >/dev/null 2>&1; then npm install -g pm2; fi
 if ! command -v ollama >/dev/null 2>&1; then curl -fsSL https://ollama.com/install.sh | sh; fi
 systemctl enable --now ollama
@@ -206,10 +292,25 @@ unset ADMIN_PASSWORD
 echo "Загружаю модель ${MODEL}…"
 ollama pull "$MODEL"
 
-NGINX_CONFIG="/etc/nginx/sites-available/local-ii.conf"
-NGINX_LINK="/etc/nginx/sites-enabled/local-ii.conf"
-rm -f /etc/nginx/sites-enabled/local-ai-server /etc/nginx/sites-available/local-ai-server
-CONFLICT=$(grep -RIlF "server_name ${DOMAIN}" /etc/nginx/sites-enabled --exclude='local-ii.conf' 2>/dev/null | head -1 || true)
+NGINX_DUMP=$(nginx -T 2>&1)
+if [[ -d /etc/nginx/sites-available && -d /etc/nginx/sites-enabled ]]; then
+  NGINX_CONFIG="/etc/nginx/sites-available/local-ii.conf"
+  NGINX_LINK="/etc/nginx/sites-enabled/local-ii.conf"
+elif grep -qE 'include[[:space:]]+/etc/nginx/conf\.d/\*\.conf' <<< "$NGINX_DUMP"; then
+  NGINX_CONFIG="/etc/nginx/conf.d/local-ii.conf"
+  NGINX_LINK="$NGINX_CONFIG"
+elif grep -qE 'include[[:space:]]+/etc/nginx/vhosts\.d/\*\.conf' <<< "$NGINX_DUMP"; then
+  NGINX_CONFIG="/etc/nginx/vhosts.d/local-ii.conf"
+  NGINX_LINK="$NGINX_CONFIG"
+else
+  install -d /etc/nginx/conf.d
+  cp -n /etc/nginx/nginx.conf /etc/nginx/nginx.conf.before-local-ii
+  sed -i '/^[[:space:]]*http[[:space:]]*{/a\    include /etc/nginx/conf.d/*.conf;' /etc/nginx/nginx.conf
+  NGINX_CONFIG="/etc/nginx/conf.d/local-ii.conf"
+  NGINX_LINK="$NGINX_CONFIG"
+fi
+rm -f /etc/nginx/sites-enabled/local-ai-server /etc/nginx/sites-available/local-ai-server 2>/dev/null || true
+CONFLICT=$(grep -RIlF "server_name ${DOMAIN}" /etc/nginx --include='*.conf' --exclude='local-ii.conf' 2>/dev/null | head -1 || true)
 if [[ -n "$CONFLICT" ]]; then
   echo "Домен уже используется другим конфигом Nginx: ${CONFLICT}"
   echo "Установка остановлена, чужой конфиг не изменён."
@@ -235,8 +336,9 @@ server {
     }
 }
 NGINX
-ln -sfn "$NGINX_CONFIG" "$NGINX_LINK"
+if [[ "$NGINX_LINK" != "$NGINX_CONFIG" ]]; then ln -sfn "$NGINX_CONFIG" "$NGINX_LINK"; fi
 nginx -t
+systemctl enable --now nginx
 systemctl reload nginx
 
 pm2 startOrReload ecosystem.config.cjs
