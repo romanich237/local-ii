@@ -28,11 +28,34 @@ async function telegramCall(method, payload = {}) {
 }
 async function sendHome() {
   const webAppUrl = 'https://' + config.domain + '/telegram-app';
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: 'Открыть панель управления', web_app: { url: webAppUrl } }],
+      [{ text: 'Состояние сервера', callback_data: 'panel:status' }, { text: 'Модели', callback_data: 'panel:models' }],
+      [{ text: 'API-ключи', callback_data: 'panel:keys' }, { text: 'Статистика', callback_data: 'panel:stats' }],
+      [{ text: 'Начать чат', callback_data: 'panel:chat' }, { text: 'Помощь', callback_data: 'panel:help' }]
+    ]
+  };
+  try {
+    await telegramCall('setMyCommands', { commands: [
+      { command: 'start', description: 'Открыть панель управления' },
+      { command: 'panel', description: 'Показать панель управления' },
+      { command: 'status', description: 'Состояние сервера' },
+      { command: 'models', description: 'Установленные модели' },
+      { command: 'keys', description: 'Управление API-ключами' },
+      { command: 'stats', description: 'Статистика запросов' },
+      { command: 'chat', description: 'Начать чат с моделью' },
+      { command: 'help', description: 'Справка по командам' }
+    ] });
+    await telegramCall('setChatMenuButton', { chat_id: adminChatId, menu_button: { type: 'web_app', text: 'Панель', web_app: { url: webAppUrl } } });
+  } catch (error) {
+    console.error('[telegram] Не удалось обновить меню бота:', error.message);
+  }
   return telegramCall('sendMessage', {
     chat_id: adminChatId,
-    text: help(),
-    reply_markup: { keyboard: [[{ text: 'Открыть панель управления', web_app: { url: webAppUrl } }]], resize_keyboard: true, is_persistent: true },
-    disable_notification: false
+    text: 'Local AI Server\\nПанель управления сервером',
+    reply_markup: keyboard,
+    disable_web_page_preview: true
   });
 }
 async function send(text) {
@@ -63,7 +86,6 @@ function help() {
     '/system текст — задать системный промт',
     '/max число — максимум выходных токенов',
     '/status — состояние Ollama и модели',
-    '/news — открыть официальный канал новостей',
     '/models — список установленных моделей',
     '/stats — статистика API за месяц',
     '/panel — открыть Mini App'
@@ -144,7 +166,6 @@ async function handleMessage(message) {
     const stats = statements.tokenStats.get();
     return send('Статистика за месяц\\nЗапросы: ' + Number(stats.month_requests).toLocaleString('ru-RU') + '\\nТокены: ' + Number(stats.month_tokens).toLocaleString('ru-RU') + '\\nAPI-ключей: ' + statements.listKeys.all().length);
   }
-  if (name === 'news') return send('Новости Local AI Server: https://t.me/localiirom');
   if (name === 'newkey') return createKeyFromCommand(args);
   if (name === 'reveal') {
     const keyId = Number.parseInt(args, 10);
@@ -198,13 +219,29 @@ async function handleMessage(message) {
   return send(help());
 }
 
+async function handleCallbackQuery(query) {
+  if (!query?.from || String(query.from.id) !== adminUserId) return;
+  const action = String(query.data || '').replace(/^panel:/, '');
+  await telegramCall('answerCallbackQuery', { callback_query_id: query.id }).catch(() => {});
+  if (action === 'status') return handleMessage({ text: '/status', chat: { type: 'private' }, from: query.from });
+  if (action === 'models') return handleMessage({ text: '/models', chat: { type: 'private' }, from: query.from });
+  if (action === 'keys') return handleMessage({ text: '/keys', chat: { type: 'private' }, from: query.from });
+  if (action === 'stats') return handleMessage({ text: '/stats', chat: { type: 'private' }, from: query.from });
+  if (action === 'chat') {
+    state().active = true;
+    return send('Режим чата включён. Отправьте сообщение. Для выхода используйте /stop.');
+  }
+  if (action === 'help') return send(help());
+  return sendHome();
+}
+
 async function poll() {
   while (true) {
     try {
-      const updates = await telegramCall('getUpdates', { offset, timeout: 25, allowed_updates: ['message'] });
+      const updates = await telegramCall('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] });
       for (const update of updates) {
         offset = update.update_id + 1;
-        try { await handleMessage(update.message); }
+        try { if (update.callback_query) await handleCallbackQuery(update.callback_query); else await handleMessage(update.message); }
         catch (error) { console.error('[telegram] Ошибка команды:', error.message); await send('Ошибка команды: ' + error.message).catch(() => {}); }
       }
     } catch (error) {
