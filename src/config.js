@@ -21,9 +21,18 @@ function loadConfig() {
     migrated = true;
   }
   if (!config.telegram) {
-    config.telegram = { enabled: false, botToken: '', adminChatId: '' };
+    config.telegram = { enabled: false, botToken: '', adminUserId: '' };
     migrated = true;
   }
+  if (!config.telegram.adminUserId && config.telegram.adminChatId) {
+    config.telegram.adminUserId = String(config.telegram.adminChatId);
+    migrated = true;
+  }
+  if (!config.timeZone) {
+    config.timeZone = 'Europe/Moscow';
+    migrated = true;
+  }
+  process.env.TZ = config.timeZone;
   if (migrated) fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   for (const field of ['port', 'domain', 'baseUrl', 'ollamaUrl', 'defaultModel', 'adminUsername', 'adminPasswordHash', 'sessionSecret']) {
     if (!config[field]) throw new Error(`В config.json отсутствует поле ${field}`);
