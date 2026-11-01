@@ -44,6 +44,7 @@ function signSession(secret, ttlSeconds = 86400) {
 function verifyTelegramWebAppData(initData, botToken, maxAgeSeconds = 86400) {
   if (typeof initData !== 'string' || !initData || initData.length > 8192) throw new Error('Telegram initData отсутствует или имеет неверный формат');
   const params = new URLSearchParams(initData);
+  if (params.getAll('hash').length !== 1) throw new Error('В initData отсутствует корректная подпись');
   const receivedHash = params.get('hash') || '';
   if (!/^[a-f0-9]{64}$/i.test(receivedHash)) throw new Error('В initData отсутствует корректная подпись');
   const entries = [...params.entries()].filter(([key]) => key !== 'hash');
