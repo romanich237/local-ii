@@ -5,7 +5,7 @@ const path = require('node:path');
 const { root } = require('./config');
 
 const templates = Object.fromEntries(
-  ['login', 'dashboard', 'docs'].map(name => [name, fs.readFileSync(path.join(root, 'views', name + '.html'), 'utf8')])
+  ['login', 'dashboard', 'models', 'docs'].map(name => [name, fs.readFileSync(path.join(root, 'views', name + '.html'), 'utf8')])
 );
 
 function escapeHtml(value) {
@@ -89,8 +89,34 @@ function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, ne
     NEW_KEY: newKey ? '<section class="card key-created"><h2>Новый API-ключ</h2><p>Сохраните его в менеджере паролей. Значение также можно посмотреть в списке ключей.</p><code>' + escapeHtml(newKey) + '</code></section>' : ''
   });
 }
+function modelsPage({ models = [], model, modelJobs = [], modelError = '', notice = null, theme = 'dark' }) {
+  const formatBytes = value => {
+    const bytes = Number(value || 0);
+    if (!bytes) return '—';
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return (bytes / (1024 ** index)).toLocaleString('ru-RU', { maximumFractionDigits: index > 2 ? 1 : 0 }) + ' ' + units[index];
+  };
+  const modelRows = models.map(item => {
+    const name = String(item.name || item.model || '');
+    const active = name === model;
+    const details = item.details || {};
+    return '<tr><td><strong class="mono">' + escapeHtml(name) + '</strong><span class="muted">' + escapeHtml(details.family || 'Ollama') + '</span></td><td>' + formatBytes(item.size) + '</td><td>' + escapeHtml(details.parameter_size || '—') + '</td><td><span class="status ' + (active ? 'status-ok' : 'status-neutral') + '">' + (active ? 'Базовая' : 'Установлена') + '</span></td><td class="actions">' + (active ? '<span class="muted">Активная модель</span>' : '<form method="post" action="/auth/models/delete"><input type="hidden" name="model" value="' + escapeHtml(name) + '"><button class="button button-danger" type="submit">Удалить</button></form>') + '</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">Установленных моделей пока нет</td></tr>';
+  const modelJobRows = modelJobs.map(job => '<div class="model-job"><div><strong class="mono">' + escapeHtml(job.model) + '</strong><span>' + escapeHtml(job.message) + '</span></div><span class="status ' + (job.status === 'success' ? 'status-ok' : job.status === 'error' ? 'status-off' : 'status-loading') + '">' + (job.status === 'success' ? 'Готово' : job.status === 'error' ? 'Ошибка' : 'Загрузка') + '</span></div>').join('');
+  const noticeHtml = notice?.message ? '<div class="alert alert-' + (['success', 'warning'].includes(notice.type) ? notice.type : 'error') + '">' + escapeHtml(notice.message) + '</div>' : modelError ? '<div class="alert alert-error">' + escapeHtml(modelError) + '</div>' : '';
+  const catalogCards = modelCatalog.map(item => '<article class="catalog-item"><div class="catalog-item-head"><span class="catalog-group">' + escapeHtml(item.group) + '</span>' + (item.recommended ? '<span class="status status-ok">Рекомендация</span>' : '') + '</div><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.note) + '</p><div class="catalog-meta"><code>' + escapeHtml(item.tag) + '</code><span>' + escapeHtml(item.ram) + '</span></div><form method="post" action="/auth/models/pull"><input type="hidden" name="modelPreset" value="' + escapeHtml(item.tag) + '"><button class="button button-secondary" type="submit">Установить</button></form></article>').join('');
+  return render('models', {
+    ...themeData(theme, '/auth/models'),
+    MODEL_COUNT: models.length,
+    MODEL_NOTICE: noticeHtml,
+    MODEL_CATALOG: catalogCards,
+    MODEL_JOBS: modelJobRows ? '<div class="model-jobs"><h3>Последние загрузки</h3>' + modelJobRows + '</div>' : '',
+    MODEL_ROWS: modelRows
+  });
+}
 function docsPage({ baseUrl, model, theme = 'dark' }) {
   const curl = 'curl ' + baseUrl + '/chat/completions \\\n  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"' + model + '","messages":[{"role":"user","content":"Привет!"}]}\'';
   return render('docs', { ...themeData(theme, '/docs'), BASE_URL: escapeHtml(baseUrl), MODEL: escapeHtml(model), CURL: escapeHtml(curl) });
 }
-module.exports = { loginPage, dashboard, docsPage };
+module.exports = { loginPage, dashboard, modelsPage, docsPage };
