@@ -24,20 +24,20 @@
     <div class="section-head"><div><p class="eyebrow">Ollama</p><h2>Модели</h2></div><span class="meta-pill"><strong>{{MODEL_COUNT}}</strong> установлено</span></div>
     {{MODEL_NOTICE}}
     <div class="tabs" role="tablist" aria-label="Каталог моделей">
-      <button class="tab is-active" type="button" role="tab" aria-selected="true" data-model-tab="recommended">Рекомендации</button>
-      <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="installed">Установленные</button>
-      <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="catalog">Полный каталог</button>
+      <button class="tab is-active" type="button" role="tab" aria-selected="true" data-model-tab="recommended" aria-controls="model-panel-recommended">Рекомендации</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="installed" aria-controls="model-panel-installed">Установленные</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="catalog" aria-controls="model-panel-catalog">Полный каталог</button>
     </div>
-    <div data-model-panel="recommended">
+    <div id="model-panel-recommended" role="tabpanel" data-model-panel="recommended">
       <div class="model-catalog">{{MODEL_CATALOG}}</div>
       <p class="hint">Требования к памяти ориентировочные. Перед загрузкой сверяйте актуальные теги и размер модели в каталоге Ollama.</p>
     </div>
-    <div data-model-panel="catalog" hidden>
+    <div id="model-panel-catalog" role="tabpanel" data-model-panel="catalog" hidden>
       <div class="model-form"><label>Поиск по каталогу<input type="search" data-catalog-search placeholder="Название модели…"></label><button class="button button-secondary" type="button" data-catalog-refresh>Обновить каталог</button></div>
       <p class="hint" data-catalog-status>Каталог загружается с ollama.com.</p>
       <div class="model-catalog" data-full-catalog></div>
     </div>
-    <div data-model-panel="installed" hidden>
+    <div id="model-panel-installed" role="tabpanel" data-model-panel="installed" hidden>
       <form class="model-form" method="post" action="/auth/models/pull">
         <label>Точный тег модели<input name="customModel" maxlength="160" placeholder="Например, qwen3:8b"></label>
         <button class="button button-primary" type="submit">Скачать модель</button>
