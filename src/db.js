@@ -78,20 +78,20 @@ const statements = {
   createKey: db.prepare('INSERT INTO api_keys(name,key_hash,key_prefix,encrypted_key,monthly_limit) VALUES(?,?,?,?,?)'),
   listKeys: db.prepare(`SELECT k.id,k.name,k.key_prefix,k.monthly_limit,k.enabled,k.created_at,k.last_used_at,
     CASE WHEN k.encrypted_key IS NULL THEN 0 ELSE 1 END AS can_reveal,
-    COALESCE(SUM(CASE WHEN u.created_at >= datetime('now','start of month') THEN u.total_tokens ELSE 0 END),0) month_tokens
+    COALESCE(SUM(CASE WHEN u.created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN u.total_tokens ELSE 0 END),0) month_tokens
     FROM api_keys k LEFT JOIN usage_events u ON u.key_id=k.id GROUP BY k.id ORDER BY k.id DESC`),
-  monthUsage: db.prepare("SELECT COALESCE(SUM(total_tokens),0) total FROM usage_events WHERE key_id=? AND created_at >= datetime('now','start of month')"),
+  monthUsage: db.prepare("SELECT COALESCE(SUM(total_tokens),0) total FROM usage_events WHERE key_id=? AND created_at >= datetime('now','+3 hours','start of month','-3 hours')"),
   recordUsage: db.prepare('INSERT INTO usage_events(key_id,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,status_code) VALUES(?,?,?,?,?,?,?)'),
   touchKey: db.prepare('UPDATE api_keys SET last_used_at=CURRENT_TIMESTAMP WHERE id=?'),
   toggleKey: db.prepare('UPDATE api_keys SET enabled=? WHERE id=?'),
   deleteKey: db.prepare('DELETE FROM api_keys WHERE id=?'),
   tokenStats: db.prepare(`SELECT COUNT(*) all_requests, COALESCE(SUM(total_tokens),0) all_tokens,
-    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN total_tokens ELSE 0 END),0) month_tokens,
-    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of day') THEN total_tokens ELSE 0 END),0) today_tokens,
-    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN prompt_tokens ELSE 0 END),0) prompt_tokens,
-    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN completion_tokens ELSE 0 END),0) completion_tokens,
-    COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN 1 ELSE 0 END),0) month_requests,
-    COALESCE(ROUND(AVG(CASE WHEN created_at >= datetime('now','start of month') THEN total_tokens END)),0) avg_tokens
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN total_tokens ELSE 0 END),0) month_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of day','-3 hours') THEN total_tokens ELSE 0 END),0) today_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN prompt_tokens ELSE 0 END),0) prompt_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN completion_tokens ELSE 0 END),0) completion_tokens,
+    COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN 1 ELSE 0 END),0) month_requests,
+    COALESCE(ROUND(AVG(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN total_tokens END)),0) avg_tokens
     FROM usage_events`),
   recent: db.prepare(`SELECT u.created_at,k.name key_name,u.model,u.total_tokens,u.latency_ms,u.status_code
     FROM usage_events u JOIN api_keys k ON k.id=u.key_id ORDER BY u.id DESC LIMIT 50`)
