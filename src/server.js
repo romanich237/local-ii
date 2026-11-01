@@ -212,7 +212,7 @@ app.get('/auth/server-status', requireAdmin, async (_req, res) => {
     arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
     loadAverage: os.loadavg().map(value => Number(value.toFixed(2))),
     memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem() },
-    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel, telegramEnabled: Boolean(config.telegram?.enabled)
+    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel, telegramEnabled: Boolean(config.telegram?.enabled && config.telegram?.botToken && (config.telegram?.adminUserId || config.telegram?.adminChatId))
   });
 });
 
