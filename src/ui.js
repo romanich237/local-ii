@@ -101,6 +101,7 @@ function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = '
       <td>${number(key.month_tokens)}</td>
       <td>${key.monthly_limit ? Number(key.monthly_limit).toLocaleString('ru-RU') : 'Без лимита'}</td>
       <td class="actions">
+        ${key.can_reveal ? `<form method="post" action="/auth/keys/${Number(key.id)}/reveal"><button class="button button-secondary" type="submit">Показать</button></form>` : '<span class="muted">Старый ключ: только хэш</span>'}
         <form method="post" action="/auth/keys/${Number(key.id)}/toggle"><button class="button button-secondary" type="submit">${key.enabled ? 'Отключить' : 'Включить'}</button></form>
         <form method="post" action="/auth/keys/${Number(key.id)}/delete"><button class="button button-danger" type="submit">Удалить</button></form>
       </td>
