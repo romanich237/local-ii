@@ -38,7 +38,7 @@ const modelCatalog = [
   { group: 'Мультимодальные', tag: 'gemma3:12b', name: 'Gemma 3 12B', note: 'Текст и изображения', ram: 'от 24 ГБ RAM' }
 ];
 
-function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, newKey, theme = 'dark', models = [], modelJobs = [], modelError = '', notice = null }) {
+function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, newKey, theme = 'dark', models = [], modelJobs = [], modelError = '', notice = null, version = 'unknown', updateInfo = null }) {
   const number = value => Number(value || 0).toLocaleString('ru-RU');
   const formatBytes = value => {
     const bytes = Number(value || 0);
@@ -63,8 +63,12 @@ function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, ne
     return '<article class="usage-item"><div class="usage-item-head"><div class="usage-key"><strong>' + escapeHtml(key.name) + '</strong><span class="mono">' + escapeHtml(key.key_prefix) + '…</span></div><span class="usage-percent">' + (limit > 0 ? percent + '%' : 'Без лимита') + '</span></div><div class="usage-item-values"><span>Потрачено <strong>' + number(used) + '</strong></span><span>' + (limit > 0 ? 'Лимит ' + number(limit) : 'Ограничение отключено') + '</span></div>' + meter + '</article>';
   }).join('') || '<div class="usage-empty">Создайте API-ключ — здесь появится расход токенов</div>';
   const keyRows = keys.map(key => '<tr><td><strong>' + escapeHtml(key.name) + '</strong><span class="muted mono">' + escapeHtml(key.key_prefix) + '…</span></td><td><span class="status ' + (key.enabled ? 'status-ok' : 'status-off') + '">' + (key.enabled ? 'Активен' : 'Выключен') + '</span></td><td>' + number(key.month_tokens) + '</td><td>' + (key.monthly_limit ? number(key.monthly_limit) : 'Без лимита') + '</td><td class="actions">' + (key.can_reveal ? '<form method="post" action="/auth/keys/' + Number(key.id) + '/reveal"><button class="button button-secondary" type="submit">Показать</button></form>' : '<span class="muted">Только хэш</span>') + '<form method="post" action="/auth/keys/' + Number(key.id) + '/toggle"><button class="button button-secondary" type="submit">' + (key.enabled ? 'Отключить' : 'Включить') + '</button></form><form method="post" action="/auth/keys/' + Number(key.id) + '/delete"><button class="button button-danger" type="submit">Удалить</button></form></td></tr>').join('') || '<tr><td colspan="5" class="empty">API-ключей пока нет</td></tr>';
-  const eventRows = recent.map(event => '<tr><td>' + escapeHtml(event.key_name) + '</td><td class="mono">' + escapeHtml(event.model) + '</td><td>' + number(event.total_tokens) + '</td><td>' + (Number(event.latency_ms || 0) / 1000).toFixed(2) + ' с</td><td><span class="status ' + (Number(event.status_code) < 400 ? 'status-ok' : 'status-off') + '">' + Number(event.status_code) + '</span></td><td>' + escapeHtml(new Date(event.created_at).toLocaleString('ru-RU')) + '</td></tr>').join('') || '<tr><td colspan="6" class="empty">Запросов пока нет</td></tr>';
+  const eventRows = recent.map(event => '<tr><td>' + escapeHtml(event.key_name) + '</td><td class="mono">' + escapeHtml(event.model) + '</td><td>' + number(event.total_tokens) + '</td><td>' + (Number(event.latency_ms || 0) / 1000).toFixed(2) + ' с</td><td><span class="status ' + (Number(event.status_code) < 400 ? 'status-ok' : 'status-off') + '">' + Number(event.status_code) + '</span></td><td>' + escapeHtml(new Date(event.created_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })) + '</td></tr>').join('') || '<tr><td colspan="6" class="empty">Запросов пока нет</td></tr>';
   const modelOptions = Array.from(new Set([model, ...installedNames])).map(name => '<option value="' + escapeHtml(name) + '"' + (name === model ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('');
+  const updateStateLabels = { idle: 'Ожидает проверки', checking: 'Проверка…', updating: 'Установка обновления…', current: 'Установлена последняя версия', updated: 'Обновление установлено', error: 'Ошибка проверки' };
+  const updateState = updateInfo?.state || 'idle';
+  const updateMessage = updateInfo?.message || 'Нажмите кнопку, чтобы проверить наличие новой версии.';
+  const updateChecked = updateInfo?.checkedAt ? new Date(updateInfo.checkedAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) : 'Ещё не проверялось';
   const catalogCards = modelCatalog.map(item => '<article class="catalog-item"><div class="catalog-item-head"><span class="catalog-group">' + escapeHtml(item.group) + '</span>' + (item.recommended ? '<span class="status status-ok">Рекомендация</span>' : '') + '</div><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.note) + '</p><div class="catalog-meta"><code>' + escapeHtml(item.tag) + '</code><span>' + escapeHtml(item.ram) + '</span></div><button class="button button-secondary" type="button" data-copy="' + escapeHtml(item.tag) + '">Скопировать тег</button></article>').join('');
   return render('dashboard', {
     ...themeData(theme, '/auth/'), MODEL: escapeHtml(model), BASE_URL: escapeHtml(baseUrl),
@@ -75,6 +79,12 @@ function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, ne
     MODEL_ROWS: modelRows, MODEL_JOBS: modelJobRows ? '<div class="model-jobs"><h3>Последние загрузки</h3>' + modelJobRows + '</div>' : '',
     MODEL_NOTICE: noticeHtml, TOKEN_BREAKDOWN: tokenBreakdown, KEY_ROWS: keyRows, EVENT_ROWS: eventRows,
     CHAT_MODEL_OPTIONS: modelOptions, MODEL_CATALOG: catalogCards,
+    SERVICE_VERSION: escapeHtml(version),
+    UPDATE_STATE: escapeHtml(updateStateLabels[updateState] || updateState),
+    UPDATE_MESSAGE: escapeHtml(updateMessage),
+    UPDATE_CHECKED: escapeHtml(updateChecked),
+    UPDATE_LATEST: escapeHtml(updateInfo?.latestVersion || version),
+    UPDATE_STATE_CODE: escapeHtml(updateState),
     SERVER_STATUS: '<div class="server-status-grid"><div class="status-cell"><span>Состояние</span><strong data-server-status>Проверка…</strong></div><div class="status-cell"><span>Версия</span><strong data-server-version>—</strong></div><div class="status-cell"><span>Операционная система</span><strong data-server-platform>—</strong></div><div class="status-cell"><span>Процессор</span><strong data-server-cpu>—</strong></div><div class="status-cell"><span>Оперативная память</span><strong data-server-memory>—</strong></div><div class="status-cell"><span>Диск</span><strong data-server-disk>—</strong></div><div class="status-cell"><span>Время работы</span><strong data-server-uptime>—</strong></div><div class="status-cell"><span>Модели Ollama</span><strong data-server-models>—</strong></div><div class="status-cell"><span>Telegram-бот</span><strong data-server-telegram>—</strong></div></div>',
     NEW_KEY: newKey ? '<section class="card key-created"><h2>Новый API-ключ</h2><p>Сохраните его в менеджере паролей. Значение также можно посмотреть в списке ключей.</p><code>' + escapeHtml(newKey) + '</code></section>' : ''
   });
