@@ -20,6 +20,10 @@ function loadConfig() {
     config.adminUsername = 'administrator';
     migrated = true;
   }
+  if (!config.telegram) {
+    config.telegram = { enabled: false, botToken: '', adminChatId: '' };
+    migrated = true;
+  }
   if (migrated) fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   for (const field of ['port', 'domain', 'baseUrl', 'ollamaUrl', 'defaultModel', 'adminUsername', 'adminPasswordHash', 'sessionSecret']) {
     if (!config[field]) throw new Error(`В config.json отсутствует поле ${field}`);
