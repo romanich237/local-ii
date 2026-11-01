@@ -166,6 +166,33 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
 });
 
 
+app.get('/auth/update-status', requireAdmin, (_req, res) => {
+  let status = {
+    state: 'idle',
+    installedVersion: serviceVersion,
+    latestVersion: serviceVersion,
+    checkedAt: null,
+    message: 'Проверка обновлений ещё не выполнялась.'
+  };
+  try {
+    status = { ...status, ...JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')) };
+  } catch {}
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(status);
+});
+
+app.post('/auth/update-check', requireAdmin, (_req, res) => {
+  try {
+    const dataDir = path.join(config.root, 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(path.join(dataDir, 'update-request'), new Date().toISOString(), { mode: 0o600 });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, message: 'Проверка обновлений поставлена в очередь.' });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: 'Не удалось запустить проверку: ' + error.message });
+  }
+});
+
 app.get('/auth/server-status', requireAdmin, async (_req, res) => {
   let ollama = false;
   let installedModels = 0;
@@ -181,7 +208,7 @@ app.get('/auth/server-status', requireAdmin, async (_req, res) => {
   } catch {}
   res.setHeader('Cache-Control', 'no-store');
   res.json({
-    version: serviceVersion, hostname: os.hostname(), platform: os.type() + ' ' + os.release(),
+    version: serviceVersion, timeZone: config.timeZone || 'Europe/Moscow', hostname: os.hostname(), platform: os.type() + ' ' + os.release(),
     arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
     loadAverage: os.loadavg().map(value => Number(value.toFixed(2))),
     memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem() },
@@ -320,7 +347,9 @@ app.get('/auth/', requireAdmin, async (req, res) => {
     models,
     modelJobs: Array.from(modelJobs.values()).slice(-8).reverse(),
     modelError,
-    notice
+    notice,
+    version: serviceVersion,
+    updateInfo: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')); } catch { return null; } })()
   }));
 });
 
