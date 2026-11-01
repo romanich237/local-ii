@@ -20,7 +20,7 @@ if command -v timedatectl >/dev/null 2>&1; then
   timedatectl set-timezone Europe/Moscow
 else
   ln -sfn /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-  printf 'Europe/Moscow\\n' > /etc/timezone
+  printf 'Europe/Moscow\n' > /etc/timezone
 fi
 
 if command -v apt-get >/dev/null 2>&1; then
@@ -571,7 +571,7 @@ fi
 
 echo "Настраиваю автоматический выпуск и продление SSL…" 
 CERTBOT_BIN=$(command -v certbot)
-printf '%s\\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail' 'DOMAIN='\"$DOMAIN\" 'SSL_EMAIL='\"$SSL_EMAIL\" 'CERTBOT='\"$CERTBOT_BIN\" 'if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Certificate Name: $DOMAIN"; then' '  "$CERTBOT" --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$SSL_EMAIL" --redirect || true' 'fi' '"$CERTBOT" renew --quiet --deploy-hook "/bin/systemctl reload nginx"' > /usr/local/bin/local-ii-certbot
+printf '%s\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail' 'DOMAIN='"$DOMAIN" 'SSL_EMAIL='"$SSL_EMAIL" 'CERTBOT='"$CERTBOT_BIN" 'if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Certificate Name: $DOMAIN"; then' '  "$CERTBOT" --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$SSL_EMAIL" --redirect || true' 'fi' '"$CERTBOT" renew --quiet --deploy-hook "/bin/systemctl reload nginx"' > /usr/local/bin/local-ii-certbot
 chmod 700 /usr/local/bin/local-ii-certbot
 cat > /etc/systemd/system/local-ii-certbot-renew.service <<'CERTBOT_SERVICE'
 [Unit]
