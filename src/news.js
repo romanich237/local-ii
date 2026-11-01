@@ -66,12 +66,15 @@ function createNewsService(config) {
     const telegram = config.telegram || {};
     const admin = String(telegram.adminUserId || telegram.adminChatId || '');
     if (!telegram.enabled || !telegram.botToken || !admin) return;
-    const message = 'Новости Local AI Server\n\n' + post.text.slice(0, 3000) + '\n\n' + post.url;
     try {
-      const response = await fetch('https://api.telegram.org/bot' + telegram.botToken + '/sendMessage', {
+      const method = post.photo ? 'sendPhoto' : 'sendMessage';
+      const payload = post.photo
+        ? { chat_id: admin, photo: post.photo, caption: post.text.slice(0, 850) + '\\n\\n' + post.url }
+        : { chat_id: admin, text: 'Новая публикация @' + CHANNEL + '\\n\\n' + post.text.slice(0, 3000) + '\\n\\n' + post.url, disable_web_page_preview: false };
+      const response = await fetch('https://api.telegram.org/bot' + telegram.botToken + '/' + method, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: admin, text: message, disable_web_page_preview: false }),
-        signal: AbortSignal.timeout(10_000)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15_000)
       });
       if (!response.ok) throw new Error('Telegram HTTP ' + response.status);
       const result = await response.json();
