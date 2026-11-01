@@ -73,7 +73,7 @@ sudo bash setup-github-access.sh
 
 После добавления deploy key updater получает обновления напрямую из origin без персонального PAT. Первый clone — отдельный шаг: для него всё ещё нужен доступ к приватному репозиторию (HTTPS PAT или SSH).
 
-Updater проверяет ветку с интервалом из `config.json` (по умолчанию 60 секунд). При новом commit выполняется fast-forward, `if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-package-lock; fi`, затем PM2 перечитывает ecosystem-конфигурацию и перезапускает API, updater и Telegram-процесс. Ручное управление:
+Updater проверяет ветку с интервалом из `config.json` (по умолчанию 60 секунд). При новом commit выполняется fast-forward, устанавливаются production-зависимости (через `npm ci`, если есть lock-файл, иначе `npm install --no-package-lock`), затем PM2 перечитывает ecosystem-конфигурацию и перезапускает API, updater и Telegram-процесс. Ручное управление:
 
 ### Ручное обновление на сервере
 
@@ -232,6 +232,27 @@ curl https://ВАШ-ДОМЕН/v1/chat/completions \
 | GET | `/auth/` | Сессия | Панель администратора |
 
 Не передавайте API-ключи в URL или query-параметрах.
+
+### OpenAI SDK и ChatGPT
+
+Local AI Server можно использовать из приложений на базе OpenAI SDK, указав собственный `base_url`:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://ВАШ-ДОМЕН/v1",
+    api_key="ВАШ_API_КЛЮЧ"
+)
+response = client.chat.completions.create(
+    model="qwen3:8b",
+    messages=[{"role": "user", "content": "Привет!"}],
+    max_tokens=1024
+)
+print(response.choices[0].message.content)
+```
+
+Сам сайт chatgpt.com и официальное приложение ChatGPT не поддерживают произвольную замену API Base URL на локальный сервер. Для подключения используйте OpenAI SDK или совместимые интерфейсы (например, LibreChat и Open WebUI), где можно задать собственный endpoint.
 
 ## Cursor
 
