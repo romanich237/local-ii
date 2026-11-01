@@ -181,6 +181,21 @@ done
 ADMIN_PASSWORD=$(od -An -N7 -tx1 /dev/urandom | tr -d ' \n')
 echo "Пароль будет создан автоматически и показан после установки."
 
+TELEGRAM_ENABLED=false
+TELEGRAM_BOT_TOKEN=""
+ADMIN_TELEGRAM_ID=""
+read -rp "Подключить Telegram-бота для управления? [y/N]: " ENABLE_TELEGRAM
+if [[ ${ENABLE_TELEGRAM,,} == "y" || ${ENABLE_TELEGRAM,,} == "yes" ]]; then
+  read -rsp "Токен Telegram-бота от @BotFather: " TELEGRAM_BOT_TOKEN; echo
+  read -rp "Ваш личный Telegram ID (число): " ADMIN_TELEGRAM_ID
+  if [[ "$TELEGRAM_BOT_TOKEN" =~ ^[0-9]{5,}:[A-Za-z0-9_-]{20,}$ && "$ADMIN_TELEGRAM_ID" =~ ^[0-9]{5,15}$ ]]; then
+    TELEGRAM_ENABLED=true
+  else
+    echo "Данные Telegram некорректны. Интеграция будет отключена."
+    TELEGRAM_BOT_TOKEN=""; ADMIN_TELEGRAM_ID=""
+  fi
+fi
+
 MODELS=(
   "smollm2:135m"
   "gemma3:270m"
@@ -454,9 +469,9 @@ if ! command -v ollama >/dev/null 2>&1; then curl -fsSL https://ollama.com/insta
 systemctl enable --now ollama
 
 cd "$APP_DIR"
-npm ci --omit=dev
+if [[ -f package-lock.json ]]; then npm ci --omit=dev; else npm install --omit=dev --no-package-lock; fi
 
-ADMIN_PASSWORD="$ADMIN_PASSWORD" node - "$DOMAIN" "$MODEL" "$ADMIN_USERNAME" "$APP_PORT" <<'NODE'
+ADMIN_PASSWORD="$ADMIN_PASSWORD" LOCAL_II_TELEGRAM_TOKEN="$TELEGRAM_BOT_TOKEN" LOCAL_II_ADMIN_TELEGRAM_ID="$ADMIN_TELEGRAM_ID" LOCAL_II_TELEGRAM_ENABLED="$TELEGRAM_ENABLED" node - "$DOMAIN" "$MODEL" "$ADMIN_USERNAME" "$APP_PORT" <<'NODE'
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { hashPassword } = require('./src/security');
@@ -472,7 +487,12 @@ const config = {
   trustProxy: true,
   autoUpdate: true,
   updateIntervalSeconds: 60,
-  repositoryBranch: 'main'
+  repositoryBranch: 'main',
+  telegram: {
+    enabled: process.env.LOCAL_II_TELEGRAM_ENABLED === 'true',
+    botToken: process.env.LOCAL_II_TELEGRAM_TOKEN || '',
+    adminChatId: process.env.LOCAL_II_ADMIN_TELEGRAM_ID || ''
+  }
 };
 fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
 NODE
@@ -561,4 +581,4 @@ echo "Сохраните логин и пароль: пароль повторн
 if [[ "$DUCKDNS_ENABLED" == true ]]; then echo "DuckDNS: обновление IP каждые 5 минут"; fi
 echo "Статус процессов: pm2 status"
 echo "============================================================"
-unset ADMIN_PASSWORD
+unset ADMIN_PASSWORD TELEGRAM_BOT_TOKEN
