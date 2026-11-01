@@ -107,7 +107,7 @@ if [[ "$REMOTE_URL" =~ ^https://[^/]+@github\.com/ ]]; then
   git -C "$APP_DIR" remote set-url origin https://github.com/romanich237/local-ii.git
   REMOTE_URL=https://github.com/romanich237/local-ii.git
 fi
-if [[ "$REMOTE_URL" == https://github.com/* ]]; then
+if [[ "$REMOTE_URL" == https://github.com/* || "$REMOTE_URL" == git@github.com:* || "$REMOTE_URL" == ssh://git@github.com/* ]]; then
   bash "$APP_DIR/setup-github-access.sh" "$APP_DIR"
 fi
 RAM_GB=$(awk '/MemTotal/{printf "%d", ($2/1024/1024)+0.5}' /proc/meminfo)
