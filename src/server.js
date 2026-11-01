@@ -5,6 +5,10 @@ const helmet = require('helmet');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 const serviceVersion = require('../package.json').version;
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
@@ -170,6 +174,44 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
 });
 
 
+function saveConfig(next) {
+  const temp = config.configPath + '.tmp';
+  fs.writeFileSync(temp, JSON.stringify(next, null, 2) + '\\n', { mode: 0o600 });
+  fs.chmodSync(temp, 0o600);
+  fs.renameSync(temp, config.configPath);
+}
+app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
+  const botToken = String(req.body.botToken || '').trim();
+  const adminUserId = String(req.body.adminUserId || '').trim();
+  const enabled = req.body.enabled === 'on';
+  if (enabled && (!/^\\d{5,15}$/.test(adminUserId) || !/^\\d{6,}:[A-Za-z0-9_-]{20,}$/.test(botToken))) {
+    setAdminNotice(req, res, 'error', 'Проверьте токен бота и числовой Telegram ID.');
+    return res.redirect('/auth/#settings');
+  }
+  const next = { ...JSON.parse(fs.readFileSync(config.configPath, 'utf8')), telegram: { ...(config.telegram || {}), enabled, botToken: enabled ? botToken : '', adminUserId: enabled ? adminUserId : '' } };
+  saveConfig(next);
+  try {
+    await execFileAsync('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env'], { cwd: config.root, timeout: 20000 });
+    await execFileAsync('pm2', ['save'], { cwd: config.root, timeout: 10000 });
+    setAdminNotice(req, res, 'success', enabled ? 'Настройки Telegram сохранены. Бот перезапущен.' : 'Telegram-бот отключён.');
+  } catch (error) {
+    setAdminNotice(req, res, 'warning', 'Настройки сохранены, но PM2 не удалось перезапустить автоматически: ' + error.message);
+  }
+  res.redirect('/auth/#settings');
+});
+app.get('/auth/model-catalog', requireAdmin, async (req, res) => {
+  res.set('Cache-Control', 'private, max-age=300');
+  try {
+    const response = await fetch('https://ollama.com/library', { headers: { 'user-agent': 'Mozilla/5.0 LocalAI-Server' }, signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error('Ollama HTTP ' + response.status);
+    const html = await response.text();
+    const names = [...new Set([...html.matchAll(/href=["']\\/library\\/([a-zA-Z0-9._-]+)["']/g)].map(match => match[1]).filter(name => !['library'].includes(name)))];
+    if (!names.length) throw new Error('Каталог Ollama не распознан');
+    res.json({ source: 'https://ollama.com/library', updatedAt: new Date().toISOString(), models: names.map(name => ({ name, tag: name, url: 'https://ollama.com/library/' + encodeURIComponent(name) })) });
+  } catch (error) {
+    res.status(502).json({ error: 'Не удалось загрузить каталог Ollama: ' + error.message });
+  }
+});
 app.get('/auth/news', requireAdmin, (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ channelUrl: newsService.channelUrl, items: newsService.list() });
@@ -365,6 +407,17 @@ app.post('/auth/login', (req, res) => {
     state.count += 1;
     if (state.count >= 5) { state.blockedUntil = Date.now() + 15 * 60_000; state.count = 0; }
     loginAttempts.set(ip, state);
+    if (state.count === 4 || state.blockedUntil > Date.now()) {
+      const telegram = config.telegram || {};
+      if (telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId)) {
+        const address = String(ip || 'unknown').slice(0, 80);
+        fetch('https://api.telegram.org/bot' + telegram.botToken + '/sendMessage', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat_id: telegram.adminUserId || telegram.adminChatId, text: '⚠️ Несколько неудачных попыток входа в админ-панель.\\nIP: ' + address + '\\nВремя: ' + new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) }),
+          signal: AbortSignal.timeout(8000)
+        }).catch(error => console.error('[security] Не удалось отправить уведомление:', error.message));
+      }
+    }
     return res.status(401).send(loginPage({ error: 'Неверный логин или пароль', theme: selectedTheme(req) }));
   }
   loginAttempts.delete(ip);
