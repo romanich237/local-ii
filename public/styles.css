@@ -1094,3 +1094,15 @@ input, select, textarea { min-width: 0; }
   .page-heading h1 { font-size: clamp(26px, 8vw, 34px); }
   .card { padding: 14px; }
 }
+
+
+/* Official channel news */
+.channel-news { margin-bottom: 18px; }
+.news-list { display: grid; gap: 0; }
+.channel-news-item { padding: 14px 0; border-top: 1px solid var(--line); min-width: 0; }
+.channel-news-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
+.channel-news-item p { margin: 0 0 9px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.channel-news-item a { color: var(--text); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .channel-news .section-head { align-items: flex-start; flex-direction: column; }
+}
