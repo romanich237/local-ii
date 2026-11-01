@@ -13,7 +13,7 @@
 <header class="topbar">
   <a class="brand brand-text" href="/auth/"><span class="brand-title">Local AI Server</span><span class="brand-subtitle">Консоль управления</span></a>
   <nav class="nav-links" aria-label="Главное меню">
-    <a href="/docs">Документация</a><a href="{{THEME_URL}}">{{THEME_LABEL}}</a><a href="/auth/logout">Выйти</a>
+    <a href="/docs">Документация</a><a href="https://cyxap.top/tg" target="_blank" rel="noopener">Помощь</a><a href="{{THEME_URL}}">{{THEME_LABEL}}</a><a href="/auth/logout">Выйти</a>
   </nav>
 </header>
 <main class="container">
@@ -23,6 +23,12 @@
   </section>
 
   {{NEW_KEY}}
+
+  <section class="card version-card" aria-label="Версия сервиса">
+    <div class="version-card-main"><div><p class="eyebrow">Обновления</p><h2>Local AI Server <span class="mono">v{{SERVICE_VERSION}}</span></h2><p class="version-message" data-update-message>{{UPDATE_MESSAGE}}</p><p class="hint">Последняя проверка: <span data-update-checked>{{UPDATE_CHECKED}}</span> · Доступная версия: <span data-update-latest>{{UPDATE_LATEST}}</span></p></div>
+      <div class="version-actions"><span class="status status-neutral" data-update-state="{{UPDATE_STATE_CODE}}">{{UPDATE_STATE}}</span><button class="button button-secondary" type="button" data-update-check>Проверить обновления</button></div>
+    </div>
+  </section>
 
   <section class="stats" aria-label="Статистика токенов">
     <article class="stat"><span>Всего токенов</span><strong>{{ALL_TOKENS}}</strong></article>
