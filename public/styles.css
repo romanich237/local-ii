@@ -1045,3 +1045,52 @@ select:disabled { cursor: not-allowed; opacity: .6; }
   .gauge-ring { width: 82px; }
   .resource-gauge > small { font-size: 9px; }
 }
+
+
+/* Responsive layout refinements */
+img, video, canvas, svg { max-width: 100%; }
+.container, .card, .stat, .table-wrap, .endpoint { min-width: 0; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { min-width: 620px; }
+pre, code { overflow-wrap: anywhere; }
+input, select, textarea, button { max-width: 100%; }
+input, select, textarea { min-width: 0; }
+.server-status-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+.stats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+.model-catalog { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.chat-settings { grid-template-columns: minmax(0, 1fr) minmax(140px, 180px); }
+.page-heading > *, .version-card-main > *, .card > * { min-width: 0; }
+.nav-links { flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .container { width: min(100% - 28px, 1160px); padding-top: 22px; }
+  .topbar { align-items: flex-start; flex-wrap: wrap; }
+  .brand { flex: 1 1 100%; }
+  .nav-links { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 3px; scrollbar-width: thin; }
+  .nav-links a { flex: 0 0 auto; white-space: nowrap; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resource-gauges { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .gauge-ring { width: clamp(64px, 13vw, 90px); }
+  .server-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-heading { align-items: stretch; flex-direction: column; }
+  .version-card-main { align-items: flex-start; flex-direction: column; }
+  .version-actions { width: 100%; flex-wrap: wrap; }
+  .chat-settings { grid-template-columns: minmax(0, 1fr) minmax(120px, 160px); }
+}
+@media (max-width: 480px) {
+  .container { width: calc(100% - 20px); padding-top: 16px; }
+  .topbar { padding: 9px 10px; }
+  .stats { gap: 8px; }
+  .stat { padding: 12px; }
+  .resource-gauge { padding: 10px 3px 8px; }
+  .resource-gauge > strong { font-size: 11px; }
+  .resource-gauge > small { font-size: 9px; }
+  .gauge-ring { width: 62px; }
+  .server-status-grid { grid-template-columns: minmax(0, 1fr); }
+  .chat-settings { grid-template-columns: minmax(0, 1fr); }
+  .chat-composer { grid-template-columns: minmax(0, 1fr); }
+  .chat-composer .button { width: 100%; }
+  .chat-footer { align-items: stretch; }
+  .version-actions .button { width: 100%; }
+  .page-heading h1 { font-size: clamp(26px, 8vw, 34px); }
+  .card { padding: 14px; }
+}
