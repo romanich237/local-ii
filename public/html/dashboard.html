@@ -24,6 +24,11 @@
 
   {{NEW_KEY}}
 
+  <section class="card channel-news" id="channel-news">
+    <div class="section-head"><div><p class="eyebrow">Объявления проекта</p><h2>Новости Local AI Server</h2><p class="section-description">Публикации из официального Telegram-канала.</p></div><a class="button button-secondary" href="https://t.me/localiirom" target="_blank" rel="noopener">Открыть канал</a></div>
+    <div class="news-list" data-channel-news aria-live="polite"><p class="hint">Загрузка новостей…</p></div>
+  </section>
+
   <section class="card version-card" aria-label="Версия сервиса">
     <div class="version-card-main"><div><p class="eyebrow">Обновления</p><h2>Local AI Server <span class="mono">v{{SERVICE_VERSION}}</span></h2><p class="version-message" data-update-message>{{UPDATE_MESSAGE}}</p><p class="hint">Последняя проверка: <span data-update-checked>{{UPDATE_CHECKED}}</span> · Доступная версия: <span data-update-latest>{{UPDATE_LATEST}}</span></p></div>
       <div class="version-actions"><span class="status status-neutral" data-update-state="{{UPDATE_STATE_CODE}}">{{UPDATE_STATE}}</span><button class="button button-secondary" type="button" data-update-check>Проверить обновления</button></div>
