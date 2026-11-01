@@ -8,7 +8,7 @@ const config = loadConfig();
 const telegram = config.telegram || {};
 if (!telegram.enabled || !telegram.botToken || !telegram.adminChatId) {
   console.log('[telegram] Управление через Telegram отключено в config.json');
-  process.exit(0);
+  setInterval(() => {}, 60 * 60 * 1000);
 }
 
 const api = 'https://api.telegram.org/bot' + telegram.botToken;
