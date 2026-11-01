@@ -178,6 +178,15 @@ app.get('/auth/update-status', requireAdmin, (_req, res) => {
   try {
     status = { ...status, ...JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')) };
   } catch {}
+  status.runtimeVersion = serviceVersion;
+  status.installedVersion = serviceVersion;
+  if (status.latestVersion && status.latestVersion !== serviceVersion) {
+    status.state = 'available';
+    status.message = 'Доступна версия ' + status.latestVersion + '. Установлена версия ' + serviceVersion + '.';
+  } else if (status.state === 'current' || status.state === 'updated') {
+    status.latestVersion = serviceVersion;
+    status.message = 'Установлена последняя версия.';
+  }
   res.setHeader('Cache-Control', 'no-store');
   res.json(status);
 });
@@ -186,7 +195,7 @@ app.post('/auth/update-check', requireAdmin, (_req, res) => {
   try {
     const dataDir = path.join(config.root, 'data');
     fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(path.join(dataDir, 'update-request'), new Date().toISOString(), { mode: 0o600 });
+    fs.writeFileSync(path.join(dataDir, 'update-request'), JSON.stringify({ requestedAt: new Date().toISOString(), runtimeVersion: serviceVersion }) + '\\n', { mode: 0o600 });
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, message: 'Проверка обновлений поставлена в очередь.' });
   } catch (error) {
@@ -381,7 +390,21 @@ app.get('/auth/', requireAdmin, async (req, res) => {
     theme: selectedTheme(req),
     notice,
     version: serviceVersion,
-    updateInfo: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')); } catch { return null; } })()
+    updateInfo: (() => {
+      let status = null;
+      try { status = JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')); } catch {}
+      if (!status) return null;
+      status.runtimeVersion = serviceVersion;
+      status.installedVersion = serviceVersion;
+      if (status.latestVersion && status.latestVersion !== serviceVersion) {
+        status.state = 'available';
+        status.message = 'Доступна версия ' + status.latestVersion + '. Установлена версия ' + serviceVersion + '.';
+      } else if (status.state === 'current' || status.state === 'updated') {
+        status.latestVersion = serviceVersion;
+        status.message = 'Установлена последняя версия.';
+      }
+      return status;
+    })()
   }));
 });
 
