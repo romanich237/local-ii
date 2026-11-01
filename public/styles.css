@@ -965,3 +965,17 @@ tbody tr:nth-child(even) { background: transparent; }
   .chat-footer { align-items: flex-start; flex-direction: column; }
   .chat-message { max-width: 100%; }
 }
+
+
+.version-card { padding: 18px 20px; }
+.version-card-main { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.version-card h2 { margin: 3px 0 6px; font-size: 18px; letter-spacing: -.02em; }
+.version-card .mono { font-size: 13px; color: var(--muted); }
+.version-message { margin: 0 0 5px; color: var(--text); font-size: 13px; }
+.version-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.version-actions [data-update-state="error"] { color: var(--danger); }
+.version-actions [data-update-state="updated"] { color: var(--success); }
+@media (max-width: 640px) {
+  .version-card-main, .version-actions { align-items: flex-start; flex-direction: column; }
+  .version-actions { width: 100%; }
+}
