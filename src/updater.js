@@ -52,7 +52,7 @@ function check() {
     } else {
       run('npm', ['install', '--omit=dev', '--no-package-lock']);
     }
-    run('pm2', ['reload', 'local-ai-api', '--update-env']);
+    run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
     console.log(`[update] Установлена версия ${remote.slice(0, 7)}`);
   } catch (error) {
     const detail = error.stderr || error.message;
