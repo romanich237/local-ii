@@ -12,6 +12,9 @@ const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, 
 const { loginPage, dashboard, modelsPage, docsPage } = require('./ui');
 
 const config = loadConfig();
+const { createNewsService } = require('./news');
+const newsService = createNewsService(config);
+newsService.start();
 const app = express();
 if (config.trustProxy) app.set('trust proxy', 1);
 app.disable('x-powered-by');
@@ -166,6 +169,11 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
   }
 });
 
+
+app.get('/auth/news', requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ channelUrl: newsService.channelUrl, items: newsService.list() });
+});
 
 app.get('/auth/update-status', requireAdmin, (_req, res) => {
   let status = {
