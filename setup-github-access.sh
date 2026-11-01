@@ -17,6 +17,14 @@ if [[ ! -d "${APP_DIR}/.git" ]]; then
   exit 1
 fi
 
+if git -C "${APP_DIR}" -c credential.helper= ls-remote https://github.com/romanich237/local-ii.git HEAD >/dev/null 2>&1; then
+  git -C "${APP_DIR}" remote set-url origin https://github.com/romanich237/local-ii.git
+  git -C "${APP_DIR}" config --local --unset core.sshCommand 2>/dev/null || true
+  git -C "${APP_DIR}" config --local --unset credential.helper 2>/dev/null || true
+  echo "Репозиторий доступен публично. Deploy Key не требуется."
+  exit 0
+fi
+
 install -d -m 700 "${SECURE_DIR}"
 if [[ ! -s "${PRIVATE_KEY}" ]]; then
   ssh-keygen -q -t ed25519 -N "" -C "local-ii-deploy-$(hostname)" -f "${PRIVATE_KEY}"
