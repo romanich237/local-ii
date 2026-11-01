@@ -288,6 +288,11 @@ app.post('/auth/chat', requireAdmin, express.json({ limit: '64kb' }), async (req
       elapsedSeconds: Number((latencyMs / 1000).toFixed(2))
     });
   } catch (error) {
+    const latencyMs = Date.now() - startedAt;
+    const promptTokens = estimateTokens(messages);
+    try { statements.recordChatUsage.run(model, promptTokens, 0, promptTokens, latencyMs, 502); } catch (logError) {
+      console.error('[chat] Не удалось записать ошибочный запрос:', logError.message);
+    }
     res.status(502).json({ error: 'Не удалось получить ответ модели: ' + error.message });
   }
 });
