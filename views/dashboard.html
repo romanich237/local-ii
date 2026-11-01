@@ -12,7 +12,7 @@
   <header class="topbar">
     <a class="brand" href="/auth/">
       <span class="brand-mark brand-mark-small">AI</span>
-      <span class="brand-copy"><span class="brand-title">Local AI Server</span><span class="brand-subtitle">Control center</span></span>
+      <span class="brand-copy"><span class="brand-title">Local AI Server</span><span class="brand-subtitle">Управление сервером</span></span>
     </a>
     <nav class="nav-links" aria-label="Главное меню">
       <a href="/docs">Документация</a>
@@ -24,8 +24,8 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Панель управления</p>
-        <h1>API под полным контролем</h1>
-        <p class="lead">Активная модель — <strong>{{MODEL}}</strong>. Управляйте ключами и следите за нагрузкой в одном месте.</p>
+        <h1>Управление сервером</h1>
+        <p class="lead">Модель по умолчанию: <strong>{{MODEL}}</strong>. Ключи доступа, статистика запросов и установленные модели.</p>
       </div>
       <div class="endpoint"><span>Base URL</span><code>{{BASE_URL}}</code></div>
     </section>
@@ -76,6 +76,16 @@
                 <option value="qwen3:4b">Qwen 3 4B</option>
                 <option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option>
                 <option value="deepseek-r1:7b">DeepSeek R1 7B</option>
+                <option value="qwen3:8b">Qwen 3 8B</option>
+                <option value="qwen3:14b">Qwen 3 14B</option>
+                <option value="qwen3:30b-a3b">Qwen 3 30B A3B</option>
+                <option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option>
+                <option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option>
+                <option value="gemma3:12b">Gemma 3 12B</option>
+                <option value="gemma3:27b">Gemma 3 27B</option>
+                <option value="mistral-small3.1:24b">Mistral Small 3.1 24B</option>
+                <option value="devstral:24b">Devstral 24B</option>
+                <option value="deepseek-coder-v2:16b">DeepSeek Coder V2 16B</option>
               </optgroup>
             </select>
           </span>
@@ -99,7 +109,7 @@
 
     <section class="card">
       <div class="section-head">
-        <div><p class="eyebrow">Управление доступом</p><h2>API-ключи</h2></div>
+        <div><p class="eyebrow">Управление доступом</p><h2>API-ключи</h2><p class="section-description">Ключи хранятся в зашифрованном виде. Их можно просмотреть после входа в панель.</p></div>
       </div>
       <form class="key-form" method="post" action="/auth/keys">
         <label>Название ключа<input name="name" maxlength="60" placeholder="Например, основной сайт" required></label>
