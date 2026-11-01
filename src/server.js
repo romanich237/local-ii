@@ -461,6 +461,7 @@ app.get('/auth/', requireAdmin, async (req, res) => {
     theme: selectedTheme(req),
     notice,
     version: serviceVersion,
+    telegramSettings: { enabled: Boolean(config.telegram?.enabled), adminUserId: config.telegram?.adminUserId || '' },
     updateInfo: (() => {
       let status = null;
       try { status = JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')); } catch {}
