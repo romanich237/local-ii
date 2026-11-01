@@ -21,10 +21,17 @@
     <p class="hint" data-miniapp-message>Подключаем Telegram и проверяем данные запуска…</p>
     <p class="miniapp-diagnostic" data-miniapp-diagnostic hidden></p>
     <button class="button button-secondary" type="button" data-miniapp-retry hidden>Повторить проверку</button>
+    <form class="miniapp-login" data-miniapp-login hidden>
+      <div class="miniapp-login-heading"><strong>Войти по логину и паролю</strong><span>Резервный способ входа, если Telegram не передал или не подтвердил ваш ID.</span></div>
+      <label>Логин<input name="username" type="text" autocomplete="username" required maxlength="128" placeholder="Логин администратора"></label>
+      <label>Пароль<input name="password" type="password" autocomplete="current-password" required maxlength="256" placeholder="Пароль администратора"></label>
+      <button class="button button-primary" type="submit" data-miniapp-login-submit>Войти в панель</button>
+      <p class="miniapp-login-error" data-miniapp-login-error hidden role="alert"></p>
+    </form>
   </section>
   <section class="miniapp-profile card" data-miniapp-profile hidden>
     <div><p class="eyebrow">Вы вошли как администратор</p><h2 data-miniapp-name>—</h2></div>
-    <div class="miniapp-user-id"><span>Telegram ID</span><strong data-miniapp-id>—</strong></div>
+    <div class="miniapp-user-id"><span data-miniapp-id-label>Telegram ID</span><strong data-miniapp-id>—</strong></div>
   </section>
   <section class="miniapp-grid" data-miniapp-links hidden>
     <a class="miniapp-link" href="/auth/"><strong>Обзор сервера</strong><span>Нагрузка, запросы и API-ключи</span></a>
