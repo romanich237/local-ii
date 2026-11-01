@@ -1,8 +1,7 @@
 {
   "name": "local-ai-server",
-  "version": "1.2.0",
-  "private": true,
-  "description": "Локальный AI-сервер с админ-панелью, Telegram-управлением и OpenAI-совместимым API",
+  "version": "1.3.0",
+  "description": "Локальный AI-сервер с веб-панелью, OpenAI-совместимым API и необязательным Telegram-управлением",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
