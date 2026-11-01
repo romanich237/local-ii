@@ -132,7 +132,7 @@
       const response = await fetch('/auth/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ model, systemPrompt, maxTokens, messages: history })
+        body: JSON.stringify({ model, systemPrompt, maxTokens, messages: history.slice(-40) })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Ошибка запроса');
@@ -165,6 +165,7 @@
     if (!data) return;
     const labels = {
       idle: 'Ожидает проверки',
+      available: 'Доступно обновление',
       checking: 'Проверка…',
       updating: 'Установка обновления…',
       current: 'Установлена последняя версия',
