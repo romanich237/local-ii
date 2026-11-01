@@ -202,13 +202,15 @@
       let attempts = 0;
       while (attempts < 90) {
         await new Promise(resolve => window.setTimeout(resolve, 2000));
-        const data = await readUpdateStatus();
-        renderUpdateStatus(data);
-        if (!['checking', 'updating', 'idle'].includes(data.state)) {
-          if (data.state === 'updated') {
-            window.setTimeout(() => window.location.reload(), 1800);
+        try {
+          const data = await readUpdateStatus();
+          renderUpdateStatus(data);
+          if (!['checking', 'updating', 'idle'].includes(data.state)) {
+            if (data.state === 'updated') window.setTimeout(() => window.location.reload(), 1800);
+            return;
           }
-          return;
+        } catch {
+          // API может кратковременно перезапускаться во время установки обновления.
         }
         attempts += 1;
       }
