@@ -1171,3 +1171,14 @@ input, select, textarea { min-width: 0; }
 
 /* Latest channel broadcast */
 .channel-broadcast-message { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+
+
+/* Model tabs: keep inactive panels hidden even when component styles define display */
+[data-model-panel][hidden] { display: none !important; }
+[data-model-panel]:not([hidden]) { display: block; }
+.tabs [role="tab"] { white-space: nowrap; }
+.tabs [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) {
+  #models .tabs { overflow-x: auto; max-width: 100%; scrollbar-width: thin; }
+  #models .tabs .tab { flex: 0 0 auto; }
+}
