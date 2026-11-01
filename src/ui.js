@@ -38,7 +38,7 @@ const modelCatalog = [
   { group: 'Мультимодальные', tag: 'gemma3:12b', name: 'Gemma 3 12B', note: 'Текст и изображения', ram: 'от 24 ГБ RAM' }
 ];
 
-function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, theme = 'dark', version = 'unknown', updateInfo = null }) {
+function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, theme = 'dark', version = 'unknown', updateInfo = null, telegramSettings = {} }) {
   const number = value => Number(value || 0).toLocaleString('ru-RU');
   const tokenBreakdown = keys.map(key => {
     const used = Number(key.month_tokens || 0), limit = Number(key.monthly_limit || 0);
@@ -66,6 +66,9 @@ function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, t
     MONTH_REQUESTS: number(tokenStats.month_requests), KEY_COUNT: keys.length,
     TOKEN_BREAKDOWN: tokenBreakdown, KEY_ROWS: keyRows, EVENT_ROWS: eventRows,
     SERVICE_VERSION: escapeHtml(version),
+    TELEGRAM_ENABLED: telegramSettings.enabled ? 'checked' : '',
+    TELEGRAM_ADMIN_ID: escapeHtml(telegramSettings.adminUserId || ''),
+    TELEGRAM_BOT_STATUS: telegramSettings.enabled ? 'Подключён' : 'Отключён',
     UPDATE_STATE: escapeHtml(updateStateLabels[updateState] || updateState),
     UPDATE_MESSAGE: escapeHtml(updateMessage), UPDATE_CHECKED: escapeHtml(updateChecked),
     UPDATE_LATEST: escapeHtml(updateInfo?.latestVersion || version), UPDATE_STATE_CODE: escapeHtml(updateState),
