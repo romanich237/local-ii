@@ -26,10 +26,16 @@
     <div class="tabs" role="tablist" aria-label="Каталог моделей">
       <button class="tab is-active" type="button" role="tab" aria-selected="true" data-model-tab="recommended">Рекомендации</button>
       <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="installed">Установленные</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="catalog">Полный каталог</button>
     </div>
     <div data-model-panel="recommended">
       <div class="model-catalog">{{MODEL_CATALOG}}</div>
       <p class="hint">Требования к памяти ориентировочные. Перед загрузкой сверяйте актуальные теги и размер модели в каталоге Ollama.</p>
+    </div>
+    <div data-model-panel="catalog" hidden>
+      <div class="model-form"><label>Поиск по каталогу<input type="search" data-catalog-search placeholder="Название модели…"></label><button class="button button-secondary" type="button" data-catalog-refresh>Обновить каталог</button></div>
+      <p class="hint" data-catalog-status>Каталог загружается с ollama.com.</p>
+      <div class="model-catalog" data-full-catalog></div>
     </div>
     <div data-model-panel="installed" hidden>
       <form class="model-form" method="post" action="/auth/models/pull">
