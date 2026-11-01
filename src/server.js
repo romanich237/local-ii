@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 const serviceVersion = require('../package.json').version;
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
-const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, signSession, verifySession } = require('./security');
+const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, signSession, verifySession, verifyTelegramWebAppData } = require('./security');
 const { loginPage, dashboard, modelsPage, docsPage } = require('./ui');
 
 const config = loadConfig();
@@ -22,7 +22,7 @@ newsService.start();
 const app = express();
 if (config.trustProxy) app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'self'"] } } }));
+app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'self'", 'https://telegram.org'] } } }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 app.use('/assets', express.static(path.join(config.root, 'public'), { fallthrough: false, maxAge: '1h' }));
 
@@ -201,6 +201,34 @@ app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
     setAdminNotice(req, res, 'warning', 'Настройки сохранены, но PM2 не удалось перезапустить автоматически: ' + error.message);
   }
   res.redirect('/auth/#settings');
+});
+app.post('/telegram-app/auth', express.json({ limit: '12kb' }), (req, res) => {
+  const telegram = config.telegram || {};
+  if (!telegram.enabled || !telegram.botToken || !telegram.adminUserId) {
+    return res.status(503).json({ ok: false, error: 'Telegram Mini App не настроен на сервере' });
+  }
+  try {
+    const verified = verifyTelegramWebAppData(req.body?.initData, telegram.botToken);
+    if (String(verified.user.id) !== String(telegram.adminUserId)) {
+      console.warn('[telegram-webapp] Отказ в доступе для Telegram ID:', verified.user.id);
+      return res.status(403).json({ ok: false, error: 'У этого Telegram-аккаунта нет прав администратора', userId: String(verified.user.id) });
+    }
+    res.cookie('lai_session', signSession(config.adminSessionSecret || config.sessionSecret), {
+      httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 86400_000, path: '/auth'
+    });
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      ok: true,
+      user: {
+        id: String(verified.user.id),
+        username: verified.user.username || '',
+        firstName: verified.user.first_name || '',
+        lastName: verified.user.last_name || ''
+      }
+    });
+  } catch (error) {
+    return res.status(401).json({ ok: false, error: error.message });
+  }
 });
 app.get('/telegram-app', (req, res) => res.sendFile(path.join(config.root, 'public', 'telegram-app.html')));
 
