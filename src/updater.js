@@ -47,7 +47,11 @@ function check() {
     }
 
     run('git', ['merge', '--ff-only', remote]);
-    run('npm', ['ci', '--omit=dev']);
+    if (fs.existsSync(require('node:path').join(config.root, 'package-lock.json'))) {
+      run('npm', ['ci', '--omit=dev']);
+    } else {
+      run('npm', ['install', '--omit=dev', '--no-package-lock']);
+    }
     run('pm2', ['reload', 'local-ai-api', '--update-env']);
     console.log(`[update] Установлена версия ${remote.slice(0, 7)}`);
   } catch (error) {
