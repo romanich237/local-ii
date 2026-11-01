@@ -20,6 +20,7 @@ function main() {
 
   const password = require('node:crypto').randomBytes(18).toString('base64url');
   config.adminPasswordHash = hashPassword(password);
+  config.adminSessionSecret = require('node:crypto').randomBytes(48).toString('base64url');
 
   fs.writeFileSync(tempPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   fs.chmodSync(tempPath, 0o600);
