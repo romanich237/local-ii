@@ -195,7 +195,7 @@ app.post('/auth/update-check', requireAdmin, (_req, res) => {
   try {
     const dataDir = path.join(config.root, 'data');
     fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(path.join(dataDir, 'update-request'), JSON.stringify({ requestedAt: new Date().toISOString(), runtimeVersion: serviceVersion }) + '\\n', { mode: 0o600 });
+    fs.writeFileSync(path.join(dataDir, 'update-request'), JSON.stringify({ requestedAt: new Date().toISOString(), runtimeVersion: serviceVersion }) + '\n', { mode: 0o600 });
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, message: 'Проверка обновлений поставлена в очередь.' });
   } catch (error) {
