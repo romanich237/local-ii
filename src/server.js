@@ -230,6 +230,43 @@ app.post('/telegram-app/auth', express.json({ limit: '12kb' }), (req, res) => {
     return res.status(401).json({ ok: false, error: error.message });
   }
 });
+app.post('/telegram-app/login', express.json({ limit: '4kb' }), (req, res) => {
+  const ip = req.ip;
+  const state = loginAttempts.get(ip) || { count: 0, blockedUntil: 0 };
+  if (state.blockedUntil > Date.now()) {
+    return res.status(429).json({ ok: false, error: 'Слишком много попыток входа. Повторите через 15 минут.' });
+  }
+  const username = String(req.body?.username || '');
+  const password = String(req.body?.password || '');
+  const validUsername = username.length <= 128 && username === config.adminUsername;
+  const validPassword = password.length <= 256 && verifyPassword(password, config.adminPasswordHash);
+  if (!validUsername || !validPassword) {
+    state.count += 1;
+    if (state.count >= 5) {
+      state.blockedUntil = Date.now() + 15 * 60_000;
+      state.count = 0;
+    }
+    loginAttempts.set(ip, state);
+    if (state.blockedUntil > Date.now()) {
+      const telegram = config.telegram || {};
+      if (telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId)) {
+        fetch('https://api.telegram.org/bot' + telegram.botToken + '/sendMessage', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat_id: telegram.adminUserId || telegram.adminChatId, text: '⚠️ Несколько неудачных попыток входа в админ-панель.\\nIP: ' + String(ip || 'unknown').slice(0, 80) + '\\nВремя: ' + new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) }),
+          signal: AbortSignal.timeout(8000)
+        }).catch(error => console.error('[security] Не удалось отправить уведомление:', error.message));
+      }
+    }
+    return res.status(401).json({ ok: false, error: 'Неверный логин или пароль' });
+  }
+  loginAttempts.delete(ip);
+  res.cookie('lai_session', signSession(config.adminSessionSecret || config.sessionSecret), {
+    httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 86400_000, path: '/auth'
+  });
+  res.set('Cache-Control', 'no-store');
+  return res.json({ ok: true, user: { username: config.adminUsername, name: 'Администратор' } });
+});
+
 app.get('/telegram-app', (req, res) => res.sendFile(path.join(config.root, 'public', 'telegram-app.html')));
 
 app.get('/auth/model-catalog', requireAdmin, async (req, res) => {
