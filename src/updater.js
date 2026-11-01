@@ -1,14 +1,19 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { loadConfig } = require('./config');
 
 const config = loadConfig();
-const repository = 'git@github.com:romanich237/local-ii.git';
+const repositoryUrl = 'https://github.com/romanich237/local-ii.git';
+const repositorySsh = 'git@github.com:romanich237/local-ii.git';
 const branch = config.repositoryBranch || 'main';
 const deployKey = '/etc/local-ii/deploy_key';
 const sshKnownHosts = '/etc/local-ii/known_hosts';
+const statusPath = path.join(config.root, 'data', 'update-status.json');
+const requestPath = path.join(config.root, 'data', 'update-request');
+let updating = false;
 
 function run(command, args, extraEnv = {}) {
   return execFileSync(command, args, {
@@ -16,52 +21,85 @@ function run(command, args, extraEnv = {}) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 180000,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...extraEnv }
+    env: { ...process.env, TZ: config.timeZone || 'Europe/Moscow', GIT_TERMINAL_PROMPT: '0', ...extraEnv }
   }).trim();
 }
-
-let updating = false;
-
-function check() {
-  if (config.autoUpdate === false || updating) return;
+function installedVersion() {
+  try { return JSON.parse(fs.readFileSync(path.join(config.root, 'package.json'), 'utf8')).version; }
+  catch { return 'unknown'; }
+}
+function writeStatus(state, details = {}) {
+  fs.mkdirSync(path.dirname(statusPath), { recursive: true });
+  const data = {
+    state,
+    installedVersion: installedVersion(),
+    latestVersion: details.latestVersion || installedVersion(),
+    checkedAt: new Date().toISOString(),
+    message: details.message || '',
+    ...details
+  };
+  const tempPath = statusPath + '.tmp';
+  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(tempPath, statusPath);
+}
+function fetchRemote() {
+  const hasDeployKey = fs.existsSync(deployKey);
+  if (hasDeployKey) {
+    const sshCommand = 'ssh -i ' + deployKey + ' -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=' + sshKnownHosts;
+    run('git', ['remote', 'set-url', 'origin', repositorySsh]);
+    run('git', ['config', '--local', 'core.sshCommand', sshCommand]);
+    run('git', ['fetch', '--prune', 'origin', branch], { GIT_SSH_COMMAND: sshCommand });
+  } else {
+    run('git', ['remote', 'set-url', 'origin', repositoryUrl]);
+    run('git', ['-c', 'credential.helper=', 'fetch', '--prune', 'origin', branch]);
+  }
+}
+function check(manual = false) {
+  if ((!manual && config.autoUpdate === false) || updating) return;
   updating = true;
+  writeStatus('checking', { message: 'Проверяется последняя версия…' });
   try {
-    const hasDeployKey = fs.existsSync(deployKey);
-    if (hasDeployKey) {
-      const sshCommand = `ssh -i ${deployKey} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${sshKnownHosts}`;
-      run('git', ['remote', 'set-url', 'origin', repository]);
-      run('git', ['config', '--local', 'core.sshCommand', sshCommand]);
-      run('git', ['fetch', '--prune', 'origin', branch], { GIT_SSH_COMMAND: sshCommand });
-    } else {
-      // Публичный репозиторий доступен по HTTPS без PAT и без авторизации GitHub-профилем.
-      run('git', ['remote', 'set-url', 'origin', 'https://github.com/romanich237/local-ii.git']);
-      // Empty helper disables inherited credential helpers; public HTTPS never needs a personal PAT.
-      run('git', ['-c', 'credential.helper=', 'fetch', '--prune', 'origin', branch]);
-    }
-
+    fetchRemote();
     const local = run('git', ['rev-parse', 'HEAD']);
-    const remote = run('git', ['rev-parse', `origin/${branch}`]);
+    const remote = run('git', ['rev-parse', 'origin/' + branch]);
+    const remotePackage = JSON.parse(run('git', ['show', 'origin/' + branch + ':package.json']));
+    const latestVersion = String(remotePackage.version || 'unknown');
+
     if (local === remote) {
-      console.log(`[update] Уже установлена актуальная версия ${local.slice(0, 7)}`);
+      writeStatus('current', { latestVersion, message: 'Установлена последняя версия.' });
+      console.log('[update] Установлена актуальная версия ' + latestVersion);
       return;
     }
 
+    writeStatus('updating', { latestVersion, message: 'Найдена новая версия. Выполняется установка…' });
     run('git', ['merge', '--ff-only', remote]);
-    if (fs.existsSync(require('node:path').join(config.root, 'package-lock.json'))) {
+    if (fs.existsSync(path.join(config.root, 'package-lock.json'))) {
       run('npm', ['ci', '--omit=dev']);
     } else {
       run('npm', ['install', '--omit=dev', '--no-package-lock']);
     }
-    run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
-    console.log(`[update] Установлена версия ${remote.slice(0, 7)}`);
+    const telegram = config.telegram || {};
+    if (telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId)) {
+      run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
+    } else {
+      run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
+      try { run('pm2', ['delete', 'local-ai-telegram']); } catch {}
+    }
+    writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'Обновление установлено.' });
+    console.log('[update] Установлена версия ' + installedVersion());
   } catch (error) {
-    const detail = error.stderr || error.message;
-    console.error(`[update] Обновление не выполнено: ${detail}`);
+    const detail = String(error.stderr || error.message || 'Неизвестная ошибка').slice(0, 1200);
+    writeStatus('error', { message: 'Не удалось проверить или установить обновление: ' + detail });
+    console.error('[update] Ошибка обновления:', detail);
   } finally {
     updating = false;
+    try { fs.rmSync(requestPath, { force: true }); } catch {}
   }
 }
 
-console.log(`[update] Репозиторий romanich237/local-ii, ветка ${branch}; проверка каждые ${config.updateIntervalSeconds || 60} сек.`);
-check();
-setInterval(check, Math.max(30, config.updateIntervalSeconds || 60) * 1000);
+console.log('[update] Репозиторий romanich237/local-ii, ветка ' + branch + '; проверка каждые ' + (config.updateIntervalSeconds || 60) + ' сек.');
+check(false);
+setInterval(() => {
+  if (fs.existsSync(requestPath)) check(true);
+}, 2000);
+setInterval(() => check(false), Math.max(30, config.updateIntervalSeconds || 60) * 1000);
