@@ -1,6 +1,6 @@
 # Local AI Server
 
-Self-hosted OpenAI-compatible API на базе Ollama. В проект входят Node.js API, веб-панель, управление API-ключами, статистика токенов, каталог моделей, Nginx, SSL и автообновление из GitHub.
+Self-hosted OpenAI-compatible API на базе Ollama (версия 1.2.0). В проект входят Node.js API, веб-панель, управление API-ключами, статистика токенов, каталог моделей, Nginx, SSL и автообновление из GitHub.
 
 ## Адреса после установки
 
@@ -29,8 +29,8 @@ GPU необязателен: Ollama может работать на CPU, но 
 
 ```bash
 sudo -i
-mkdir -p /opt
-cd /opt
+mkdir -p /root
+cd /root
 git clone https://github.com/romanich237/local-ii.git
 cd local-ii
 ```
@@ -67,13 +67,13 @@ sudo bash install.sh
 Для уже установленного сервера:
 
 ```bash
-cd /opt/local-ii
+cd /root/local-ii
 sudo bash setup-github-access.sh
 ```
 
 После добавления deploy key updater получает обновления напрямую из origin без персонального PAT. Первый clone — отдельный шаг: для него всё ещё нужен доступ к приватному репозиторию (HTTPS PAT или SSH).
 
-Updater проверяет ветку с интервалом из `config.json` (по умолчанию 60 секунд). При новом commit выполняется fast-forward, `npm ci --omit=dev`, затем перезапускается API через PM2. Ручное управление:
+Updater проверяет ветку с интервалом из `config.json` (по умолчанию 60 секунд). При новом commit выполняется fast-forward, `if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-package-lock; fi`, затем PM2 перечитывает ecosystem-конфигурацию и перезапускает API, updater и Telegram-процесс. Ручное управление:
 
 ### Ручное обновление на сервере
 
@@ -88,7 +88,7 @@ sudo -i
 Затем выполните обновление:
 
 ```bash
-cd /opt/local-ii
+cd /root/local-ii
 git fetch --prune origin main
 git merge --ff-only origin/main
 if [ -f package-lock.json ]; then
@@ -107,7 +107,7 @@ pm2 save
 Для приватного репозитория перед ручным обновлением должен быть настроен Deploy Key:
 
 ```bash
-cd /opt/local-ii
+cd /root/local-ii
 sudo bash setup-github-access.sh
 ```
 
@@ -154,6 +154,43 @@ ollama list
 ```
 
 В панели можно скачивать и удалять модели. Базовую модель, выбранную при установке, панель не даст удалить.
+
+## Управление через Telegram
+
+При новой установке установщик предлагает подключить Telegram-бота. Создайте бота через [@BotFather](https://t.me/BotFather), затем укажите его токен и свой личный Telegram ID. Бот принимает команды только от указанного ID в личном чате; сообщения других пользователей игнорируются.
+
+Если Telegram был пропущен при установке, добавьте в локальный `config.json`:
+
+```json
+{
+  "telegram": {
+    "enabled": true,
+    "botToken": "ТОКЕН_ОТ_BOTFATHER",
+    "adminChatId": "ВАШ_TELEGRAM_ID"
+  }
+}
+```
+
+После изменения конфигурации перезапустите Telegram-процесс: `pm2 restart local-ai-telegram --update-env`.
+
+Команды бота:
+
+| Команда | Назначение |
+|---|---|
+| `/keys` | Просмотр списка API-ключей |
+| `/newkey название [лимит]` | Создание API-ключа |
+| `/reveal ID` | Просмотр полного ключа |
+| `/on ID`, `/off ID` | Включение и отключение ключа |
+| `/delete ID` | Удаление ключа |
+| `/chat` | Начать диалог с локальной моделью |
+| `/stop` | Выйти из режима чата |
+| `/clear` | Очистить историю |
+| `/model тег` | Выбрать модель для чата |
+| `/system текст` | Изменить системный промт |
+| `/max число` | Установить максимум выходных токенов (1–32768) |
+| `/status` | Проверить доступность Ollama |
+
+После каждой генерации бот показывает входные/выходные токены, общий расход и длительность ответа. Не пересылайте токен Telegram-бота и API-ключи третьим лицам.
 
 ## API
 
