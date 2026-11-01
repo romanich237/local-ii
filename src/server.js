@@ -28,7 +28,7 @@ function cookieMap(req) {
     return Object.fromEntries(String(req.headers.cookie || '').split(';').map(v => v.trim().split('=').map(decodeURIComponent)).filter(v => v.length === 2));
   } catch { return {}; }
 }
-function isAdmin(req) { return verifySession(cookieMap(req).lai_session, config.sessionSecret); }
+function isAdmin(req) { return verifySession(cookieMap(req).lai_session, config.adminSessionSecret || config.sessionSecret); }
 function selectedTheme(req) { return cookieMap(req).lai_theme === 'light' ? 'light' : 'dark'; }
 function isSecure(req) { return req.secure || req.get('x-forwarded-proto') === 'https'; }
 function requireAdmin(req, res, next) { return isAdmin(req) ? next() : res.redirect('/auth/login'); }
@@ -361,7 +361,7 @@ app.post('/auth/login', (req, res) => {
   }
   loginAttempts.delete(ip);
   const secure = isSecure(req);
-  res.cookie('lai_session', signSession(config.sessionSecret), { httpOnly: true, sameSite: 'strict', secure, maxAge: 86400_000, path: '/auth' });
+  res.cookie('lai_session', signSession(config.adminSessionSecret || config.sessionSecret), { httpOnly: true, sameSite: 'strict', secure, maxAge: 86400_000, path: '/auth' });
   res.redirect('/auth/');
 });
 app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: '/auth' }); res.redirect('/auth/login'); });
