@@ -18,55 +18,64 @@
     return (days ? days + ' д ' : '') + hours + ' ч ' + minutes + ' мин';
   };
 
+  const serverStatus = $('[data-server-status]');
+  const serverFields = {
+    version: $('[data-server-version]'), platform: $('[data-server-platform]'), cpu: $('[data-server-cpu]'),
+    uptime: $('[data-server-uptime]'), models: $('[data-server-models]'), telegram: $('[data-server-telegram]'), timezone: $('[data-server-timezone]')
+  };
+  const gaugeElements = Object.fromEntries(['cpu', 'memory', 'disk'].map(name => [name, $('[data-gauge="' + name + '"]')]));
+  const gaugeDetails = Object.fromEntries(['memory', 'disk'].map(name => [name, $('[data-gauge-detail="' + name + '"]')]));
+  const setGauge = (name, value) => {
+    const gauge = gaugeElements[name];
+    if (!gauge) return;
+    const percent = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    gauge.style.setProperty('--gauge-value', percent);
+    const label = gauge.querySelector('[data-gauge-text]');
+    if (label) label.textContent = percent + '%';
+  };
   async function refreshServerStatus() {
-    const status = $('[data-server-status]');
-    if (!status) return;
-    status.textContent = 'Проверка…';
+    if (!serverStatus) return;
+    serverStatus.textContent = 'Проверка…';
     try {
       const response = await fetch('/auth/server-status', { headers: { Accept: 'application/json' }, cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
-      status.textContent = data.ollama ? 'Работает' : 'Ollama недоступна';
-      status.dataset.state = data.ollama ? 'ok' : 'error';
-      $('[data-server-version]').textContent = 'v' + data.version;
-      $('[data-server-platform]').textContent = data.platform + ' · ' + data.arch;
-      $('[data-server-cpu]').textContent = data.cpuCores + ' ядер · нагрузка ' + data.loadAverage.join(' / ');
-      $('[data-server-memory]').textContent = formatBytes(data.memory.used) + ' / ' + formatBytes(data.memory.total);
-      $('[data-server-disk]').textContent = data.disk ? formatBytes(data.disk.free) + ' свободно из ' + formatBytes(data.disk.total) : 'Недоступно';
-      $('[data-server-uptime]').textContent = formatDuration(data.uptimeSeconds);
-      $('[data-server-models]').textContent = data.installedModels + ' · ' + data.defaultModel;
-      $('[data-server-telegram]').textContent = data.telegramEnabled ? 'Настроен' : 'Не подключён';
-      $('[data-server-timezone]').textContent = data.timeZone || 'Europe/Moscow';
+      serverStatus.textContent = data.ollama ? 'Работает' : 'Ollama недоступна';
+      serverStatus.dataset.state = data.ollama ? 'ok' : 'error';
+      if (serverFields.version) serverFields.version.textContent = 'v' + data.version;
+      if (serverFields.platform) serverFields.platform.textContent = data.platform + ' · ' + data.arch;
+      if (serverFields.cpu) serverFields.cpu.textContent = data.cpuCores + ' ядер';
+      if (serverFields.uptime) serverFields.uptime.textContent = formatDuration(data.uptimeSeconds);
+      if (serverFields.models) serverFields.models.textContent = data.installedModels + ' · ' + data.defaultModel;
+      if (serverFields.telegram) serverFields.telegram.textContent = data.telegramEnabled ? 'Настроен' : 'Не подключён';
+      if (serverFields.timezone) serverFields.timezone.textContent = data.timeZone || 'Europe/Moscow';
+      setGauge('cpu', data.cpu?.percent);
+      setGauge('memory', data.memory?.percent);
+      setGauge('disk', data.disk?.percent);
+      if (gaugeDetails.memory) gaugeDetails.memory.textContent = formatBytes(data.memory.used) + ' / ' + formatBytes(data.memory.total);
+      if (gaugeDetails.disk) gaugeDetails.disk.textContent = formatBytes(data.disk?.used) + ' / ' + formatBytes(data.disk?.total);
     } catch (error) {
-      status.textContent = 'Не удалось получить состояние';
-      status.dataset.state = 'error';
+      serverStatus.textContent = 'Не удалось получить состояние';
+      serverStatus.dataset.state = 'error';
     }
   }
-
   $('[data-refresh-status]')?.addEventListener('click', refreshServerStatus);
   refreshServerStatus();
-  if ($('[data-server-status]')) window.setInterval(refreshServerStatus, 30000);
+  if (serverStatus) window.setInterval(refreshServerStatus, 15000);
 
-  $$('[data-model-tab]').forEach(button => button.addEventListener('click', () => {
-    const selected = button.dataset.modelTab;
-    $$('[data-model-tab]').forEach(item => {
-      const active = item === button;
-      item.classList.toggle('is-active', active);
-      item.setAttribute('aria-selected', String(active));
-    });
-    $$('[data-model-panel]').forEach(panel => { panel.hidden = panel.dataset.modelPanel !== selected; });
-  }));
-
-  $$('[data-copy]').forEach(button => button.addEventListener('click', async () => {
+  document.addEventListener('click', async event => {
+    const button = event.target.closest('[data-copy]');
+    if (!button) return;
     try {
       await navigator.clipboard.writeText(button.dataset.copy);
       const previous = button.textContent;
       button.textContent = 'Скопировано';
       window.setTimeout(() => { button.textContent = previous; }, 1400);
-    } catch {
-      button.textContent = 'Не удалось скопировать';
-    }
-  }));
+    } catch { button.textContent = 'Не удалось скопировать'; }
+  });
+  document.addEventListener('submit', event => {
+    if (event.target.matches('.key-rotate-form') && !window.confirm('Старый ключ будет заменён новым. Продолжить?')) event.preventDefault();
+  });
 
   const chatForm = $('[data-chat-form]');
   const settings = $('[data-chat-settings]');
