@@ -146,6 +146,69 @@
     }
   });
 
+  const updateButton = $('[data-update-check]');
+  const updateMessage = $('[data-update-message]');
+  const updateState = $('[data-update-state]');
+  const updateChecked = $('[data-update-checked]');
+  const updateLatest = $('[data-update-latest]');
+  function renderUpdateStatus(data) {
+    if (!data) return;
+    const labels = {
+      idle: 'Ожидает проверки',
+      checking: 'Проверка…',
+      updating: 'Установка обновления…',
+      current: 'Установлена последняя версия',
+      updated: 'Обновление установлено',
+      error: 'Ошибка проверки'
+    };
+    if (updateMessage) updateMessage.textContent = data.message || '';
+    if (updateState) {
+      updateState.textContent = labels[data.state] || data.state || 'Неизвестно';
+      updateState.dataset.updateState = data.state || 'idle';
+    }
+    if (updateChecked && data.checkedAt) {
+      updateChecked.textContent = new Date(data.checkedAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+    }
+    if (updateLatest && data.latestVersion) updateLatest.textContent = data.latestVersion;
+    if (updateButton) updateButton.disabled = ['checking', 'updating'].includes(data.state);
+  }
+  async function readUpdateStatus() {
+    const response = await fetch('/auth/update-status', { cache: 'no-store', headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return response.json();
+  }
+  updateButton?.addEventListener('click', async () => {
+    updateButton.disabled = true;
+    if (updateMessage) updateMessage.textContent = 'Отправляем запрос на проверку…';
+    try {
+      const response = await fetch('/auth/update-check', {
+        method: 'POST',
+        headers: { Accept: 'application/json' }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Не удалось запустить проверку');
+      if (updateMessage) updateMessage.textContent = 'Запрос принят. Ожидаем результат…';
+      let attempts = 0;
+      while (attempts < 90) {
+        await new Promise(resolve => window.setTimeout(resolve, 2000));
+        const data = await readUpdateStatus();
+        renderUpdateStatus(data);
+        if (!['checking', 'updating', 'idle'].includes(data.state)) {
+          if (data.state === 'updated') {
+            window.setTimeout(() => window.location.reload(), 1800);
+          }
+          return;
+        }
+        attempts += 1;
+      }
+      if (updateMessage) updateMessage.textContent = 'Проверка ещё выполняется. Обновите страницу через некоторое время.';
+      updateButton.disabled = false;
+    } catch (error) {
+      if (updateMessage) updateMessage.textContent = 'Ошибка: ' + error.message;
+      updateButton.disabled = false;
+    }
+  });
+
   const pythonForm = $('#python-client-form');
   pythonForm?.addEventListener('submit', () => {
     pythonForm.elements.model.value = settings.elements.model.value;
