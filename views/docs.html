@@ -27,6 +27,23 @@
 <div class="route"><code>POST /v1/chat/completions</code><span>Генерация ответа, Bearer-ключ.</span></div>
 </section>
 <section class="card docs-card"><p class="eyebrow">cURL</p><h2>Пример запроса</h2><pre><code>{{CURL}}</code></pre><p>Если поле model не передано, сервер использует модель по умолчанию. Параметр stream включает потоковую передачу ответа.</p></section>
+<section class="card docs-card">
+<p class="eyebrow">Контекст диалога</p><h2>Как передавать историю сообщений</h2>
+<p>API не хранит историю между отдельными запросами. Для продолжения беседы клиент должен передавать в массиве <code>messages</code> предыдущие сообщения пользователя и ответы модели в исходном порядке. Системную инструкцию передавайте с ролью <code>system</code>.</p>
+<pre><code>curl {{BASE_URL}}/chat/completions \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{MODEL}}",
+    "messages": [
+      {"role": "system", "content": "Отвечай на русском и учитывай контекст беседы."},
+      {"role": "user", "content": "Меня зовут Алексей."},
+      {"role": "assistant", "content": "Приятно познакомиться, Алексей."},
+      {"role": "user", "content": "Как меня зовут?"}
+    ]
+  }'</code></pre>
+<p>Встроенный чат админ-панели автоматически отправляет до 40 последних реплик при каждом сообщении. История хранится в браузере до перезагрузки страницы; кнопка «Очистить чат» сбрасывает контекст.</p>
+</section>
 <section class="card docs-card"><p class="eyebrow">Cursor</p><h2>Подключение Cursor</h2><ol><li>Откройте Cursor Settings → Models.</li><li>Добавьте API-ключ и включите Use API Key.</li><li>Включите Base URL Override.</li><li>Укажите <code>{{BASE_URL}}</code>.</li><li>Добавьте точный ID модели из <code>GET /v1/models</code>.</li></ol><p>Для Agent выбирайте модель с поддержкой tool calling.</p></section>
 <section class="card docs-card">
 <p class="eyebrow">OpenAI SDK и ChatGPT</p><h2>Подключение через OpenAI-совместимый клиент</h2>
