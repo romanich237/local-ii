@@ -279,10 +279,13 @@ app.post('/auth/chat', requireAdmin, express.json({ limit: '64kb' }), async (req
     const promptTokens = Number(payload.usage?.prompt_tokens ?? estimateTokens(messages));
     const completionTokens = Number(payload.usage?.completion_tokens ?? estimateTokens(answer));
     res.setHeader('Cache-Control', 'no-store');
+    const totalTokens = Number(payload.usage?.total_tokens ?? promptTokens + completionTokens);
+    const latencyMs = Date.now() - startedAt;
+    statements.recordChatUsage.run(model, promptTokens, completionTokens, totalTokens, latencyMs, 200);
     res.json({
       answer, model,
-      usage: { promptTokens, completionTokens, totalTokens: Number(payload.usage?.total_tokens ?? promptTokens + completionTokens) },
-      elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(2))
+      usage: { promptTokens, completionTokens, totalTokens },
+      elapsedSeconds: Number((latencyMs / 1000).toFixed(2))
     });
   } catch (error) {
     res.status(502).json({ error: 'Не удалось получить ответ модели: ' + error.message });
