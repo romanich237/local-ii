@@ -509,6 +509,8 @@ app.get('/auth/models', requireAdmin, async (req, res) => {
   catch (error) { modelError = 'Не удалось получить список моделей: ' + error.message; }
   res.send(modelsPage({ models, model: config.defaultModel, modelJobs: Array.from(modelJobs.values()).slice(-8).reverse(), modelError, notice, theme: selectedTheme(req) }));
 });
+app.get('/auth/chat', requireAdmin, (_req, res) => res.redirect(302, '/auth/#chat'));
+
 app.get('/auth/', requireAdmin, async (req, res) => {
   const cookies = cookieMap(req);
   const newKey = cookies.lai_new_key || '';
