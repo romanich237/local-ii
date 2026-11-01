@@ -229,7 +229,7 @@ curl -fsS "http://127.0.0.1:$(node -p "require('./config.json').port")/health"
 | `src/updater.js` | Автообновление |
 | `src/telegram.js` | Telegram-бот |
 | `src/ui.js` | Рендер интерфейса |
-| `src/html/` | HTML-шаблоны |
+| `public/html/` | HTML-шаблоны |
 | `public/` | Стили и клиентский JavaScript |
 | `install.sh` | Установка |
 | `ecosystem.config.cjs` | PM2 |
