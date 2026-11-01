@@ -91,7 +91,12 @@ sudo -i
 cd /opt/local-ii
 git fetch --prune origin main
 git merge --ff-only origin/main
-npm ci --omit=dev
+if [ -f package-lock.json ]; then
+  npm ci --omit=dev
+else
+  npm install --omit=dev --no-package-lock
+fi
+
 pm2 reload local-ai-api --update-env
 pm2 restart local-ai-updater --update-env
 pm2 save
