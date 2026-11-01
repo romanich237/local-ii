@@ -1145,3 +1145,12 @@ input, select, textarea { min-width: 0; }
   .miniapp-profile { align-items: flex-start; flex-direction: column; }
   .miniapp-user-id { text-align: left; }
 }
+
+
+/* Mini App connection diagnostics */
+.miniapp-auth { display: grid; gap: 10px; padding: 18px; }
+.miniapp-auth .miniapp-status-title { margin: 0; font-size: 16px; }
+.miniapp-auth .hint { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.miniapp-diagnostic { margin: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.miniapp-auth [data-miniapp-retry] { justify-self: start; min-height: 40px; }
+.telegram-app-page { overflow-x: hidden; }
