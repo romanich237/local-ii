@@ -40,26 +40,35 @@ const modelCatalog = [
 
 function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, theme = 'dark', version = 'unknown', updateInfo = null }) {
   const number = value => Number(value || 0).toLocaleString('ru-RU');
+  const tokenBreakdown = keys.map(key => {
+    const used = Number(key.month_tokens || 0), limit = Number(key.monthly_limit || 0);
+    const percent = limit > 0 ? Math.round(used / limit * 100) : 0;
+    const meter = limit > 0 ? '<progress class="usage-progress" max="' + limit + '" value="' + Math.min(used, limit) + '"></progress>' : '<div class="usage-no-limit"></div>';
+    return '<article class="usage-item"><div class="usage-item-head"><div class="usage-key"><strong>' + escapeHtml(key.name) + '</strong><span class="mono">' + escapeHtml(key.key_prefix) + '…</span></div><span class="usage-percent">' + (limit > 0 ? percent + '%' : 'Без лимита') + '</span></div><div class="usage-item-values"><span>Потрачено <strong>' + number(used) + '</strong></span><span>' + (limit > 0 ? 'Лимит ' + number(limit) : 'Ограничение отключено') + '</span></div>' + meter + '</article>';
+  }).join('') || '<div class="usage-empty">Создайте API-ключ — здесь появится расход токенов</div>';
+  const keyRows = keys.map(key => {
+    const id = Number(key.id);
+    const reveal = key.can_reveal
+      ? '<form method="post" action="/auth/keys/' + id + '/reveal"><button class="button button-secondary" type="submit">Показать</button></form>'
+      : '<form class="key-rotate-form" method="post" action="/auth/keys/' + id + '/rotate"><button class="button button-secondary" type="submit">Перевыпустить</button></form>';
+    return '<tr><td><strong>' + escapeHtml(key.name) + '</strong><span class="muted mono">' + escapeHtml(key.key_prefix) + '…</span></td><td><span class="status ' + (key.enabled ? 'status-ok' : 'status-off') + '">' + (key.enabled ? 'Активен' : 'Выключен') + '</span></td><td>' + number(key.month_tokens) + '</td><td>' + (key.monthly_limit ? number(key.monthly_limit) : 'Без лимита') + '</td><td class="actions">' + reveal + '<form method="post" action="/auth/keys/' + id + '/toggle"><button class="button button-secondary" type="submit">' + (key.enabled ? 'Отключить' : 'Включить') + '</button></form><form method="post" action="/auth/keys/' + id + '/delete"><button class="button button-danger" type="submit">Удалить</button></form></td></tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">API-ключей пока нет</td></tr>';
+  const eventRows = recent.map(event => '<tr><td>' + escapeHtml(event.key_name) + '</td><td class="mono">' + escapeHtml(event.model) + '</td><td>' + number(event.total_tokens) + '</td><td>' + (Number(event.latency_ms || 0) / 1000).toFixed(2) + ' с</td><td><span class="status ' + (Number(event.status_code) < 400 ? 'status-ok' : 'status-off') + '">' + Number(event.status_code) + '</span></td><td>' + escapeHtml(new Date(event.created_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })) + '</td></tr>').join('') || '<tr><td colspan="6" class="empty">Запросов пока нет</td></tr>';
   const updateStateLabels = { idle: 'Ожидает проверки', checking: 'Проверка…', updating: 'Установка обновления…', current: 'Установлена последняя версия', updated: 'Обновление установлено', error: 'Ошибка проверки' };
   const updateState = updateInfo?.state || 'idle';
   const updateMessage = updateInfo?.message || 'Нажмите кнопку, чтобы проверить наличие новой версии.';
   const updateChecked = updateInfo?.checkedAt ? new Date(updateInfo.checkedAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) : 'Ещё не проверялось';
-  const catalogCards = modelCatalog.map(item => '<article class="catalog-item"><div class="catalog-item-head"><span class="catalog-group">' + escapeHtml(item.group) + '</span>' + (item.recommended ? '<span class="status status-ok">Рекомендация</span>' : '') + '</div><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.note) + '</p><div class="catalog-meta"><code>' + escapeHtml(item.tag) + '</code><span>' + escapeHtml(item.ram) + '</span></div><button class="button button-secondary" type="button" data-copy="' + escapeHtml(item.tag) + '">Скопировать тег</button></article>').join('');
   return render('dashboard', {
-    ...themeData(theme, '/auth/'), MODEL: escapeHtml(model), BASE_URL: escapeHtml(baseUrl),
+    ...themeData(theme, '/auth/'), BASE_URL: escapeHtml(baseUrl),
     ALL_TOKENS: number(tokenStats.all_tokens), MONTH_TOKENS: number(tokenStats.month_tokens),
     TODAY_TOKENS: number(tokenStats.today_tokens), AVG_TOKENS: number(tokenStats.avg_tokens),
     PROMPT_TOKENS: number(tokenStats.prompt_tokens), COMPLETION_TOKENS: number(tokenStats.completion_tokens),
-    MONTH_REQUESTS: number(tokenStats.month_requests), KEY_COUNT: keys.length, MODEL_COUNT: models.length,
-    MODEL_ROWS: modelRows, MODEL_JOBS: modelJobRows ? '<div class="model-jobs"><h3>Последние загрузки</h3>' + modelJobRows + '</div>' : '',
-    MODEL_NOTICE: noticeHtml, TOKEN_BREAKDOWN: tokenBreakdown, KEY_ROWS: keyRows, EVENT_ROWS: eventRows,
-    CHAT_MODEL_OPTIONS: modelOptions, MODEL_CATALOG: catalogCards,
+    MONTH_REQUESTS: number(tokenStats.month_requests), KEY_COUNT: keys.length,
+    TOKEN_BREAKDOWN: tokenBreakdown, KEY_ROWS: keyRows, EVENT_ROWS: eventRows,
     SERVICE_VERSION: escapeHtml(version),
     UPDATE_STATE: escapeHtml(updateStateLabels[updateState] || updateState),
-    UPDATE_MESSAGE: escapeHtml(updateMessage),
-    UPDATE_CHECKED: escapeHtml(updateChecked),
-    UPDATE_LATEST: escapeHtml(updateInfo?.latestVersion || version),
-    UPDATE_STATE_CODE: escapeHtml(updateState),
+    UPDATE_MESSAGE: escapeHtml(updateMessage), UPDATE_CHECKED: escapeHtml(updateChecked),
+    UPDATE_LATEST: escapeHtml(updateInfo?.latestVersion || version), UPDATE_STATE_CODE: escapeHtml(updateState),
     SERVER_STATUS: '<div class="resource-gauges"><article class="resource-gauge"><div class="gauge-ring" data-gauge="cpu" style="--gauge-value:0"><span data-gauge-text>0%</span></div><strong>CPU</strong></article><article class="resource-gauge"><div class="gauge-ring" data-gauge="memory" style="--gauge-value:0"><span data-gauge-text>0%</span></div><strong>Память</strong><small data-gauge-detail="memory">—</small></article><article class="resource-gauge"><div class="gauge-ring" data-gauge="disk" style="--gauge-value:0"><span data-gauge-text>0%</span></div><strong>Жёсткий диск</strong><small data-gauge-detail="disk">—</small></article></div><div class="server-status-grid"><div class="status-cell"><span>Состояние</span><strong data-server-status>Проверка…</strong></div><div class="status-cell"><span>Версия</span><strong data-server-version>—</strong></div><div class="status-cell"><span>Операционная система</span><strong data-server-platform>—</strong></div><div class="status-cell"><span>Процессор</span><strong data-server-cpu>—</strong></div><div class="status-cell"><span>Время работы</span><strong data-server-uptime>—</strong></div><div class="status-cell"><span>Модели Ollama</span><strong data-server-models>—</strong></div><div class="status-cell"><span>Telegram-бот</span><strong data-server-telegram>—</strong></div><div class="status-cell"><span>Часовой пояс</span><strong data-server-timezone>—</strong></div></div>',
     NEW_KEY: newKey ? '<section class="card key-created"><h2>Новый API-ключ</h2><p>Сохраните его в менеджере паролей. Значение также можно посмотреть в списке ключей.</p><code>' + escapeHtml(newKey) + '</code></section>' : ''
   });
