@@ -36,6 +36,7 @@
       $('[data-server-uptime]').textContent = formatDuration(data.uptimeSeconds);
       $('[data-server-models]').textContent = data.installedModels + ' · ' + data.defaultModel;
       $('[data-server-telegram]').textContent = data.telegramEnabled ? 'Настроен' : 'Не подключён';
+      $('[data-server-timezone]').textContent = data.timeZone || 'Europe/Moscow';
     } catch (error) {
       status.textContent = 'Не удалось получить состояние';
       status.dataset.state = 'error';
