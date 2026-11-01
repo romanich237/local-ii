@@ -31,7 +31,8 @@ async function sendHome() {
   return telegramCall('sendMessage', {
     chat_id: adminChatId,
     text: help(),
-    reply_markup: { keyboard: [[{ text: 'Открыть панель управления', web_app: { url: webAppUrl } }]], resize_keyboard: true, is_persistent: true }
+    reply_markup: { keyboard: [[{ text: 'Открыть панель управления', web_app: { url: webAppUrl } }]], resize_keyboard: true, is_persistent: true },
+    disable_notification: false
   });
 }
 async function send(text) {
