@@ -1182,3 +1182,19 @@ input, select, textarea { min-width: 0; }
   #models .tabs { overflow-x: auto; max-width: 100%; scrollbar-width: thin; }
   #models .tabs .tab { flex: 0 0 auto; }
 }
+
+
+/* Image and video model catalogue */
+.media-catalog-intro { margin: 8px 0 18px; max-width: 820px; }
+.media-catalog-intro h3 { margin: 0 0 6px; font-size: 17px; }
+.media-catalog-intro p { margin: 0; line-height: 1.6; }
+.media-model-catalog { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.media-model-item { min-width: 0; }
+.media-model-item .catalog-meta { align-items: flex-start; flex-direction: column; gap: 7px; }
+.media-model-item .catalog-meta code { max-width: 100%; overflow-wrap: anywhere; }
+.media-model-item .catalog-meta span { color: var(--muted); font-size: 12px; }
+.media-model-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.media-model-actions a { text-decoration: none; }
+@media (max-width: 560px) {
+  .media-model-actions > * { flex: 1 1 100%; justify-content: center; }
+}
