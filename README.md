@@ -32,10 +32,6 @@ bash install.sh
 
 ---
 
-# Local AI Server
-
-Self-hosted OpenAI-compatible API на базе Ollama (версия 1.3.2). В проект входят Node.js API, веб-панель, управление API-ключами, статистика токенов, каталог моделей, Nginx, SSL и автообновление из GitHub.
-
 ## Адреса после установки
 
 - Панель: `https://ВАШ-ДОМЕН/auth/`
