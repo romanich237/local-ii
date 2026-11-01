@@ -132,8 +132,8 @@
     }
   });
 
-  const modelTabs = $('[data-model-tab]');
-  const modelPanels = $('[data-model-panel]');
+  const modelTabs = $$('[data-model-tab]');
+  const modelPanels = $$('[data-model-panel]');
   let catalogLoaded = false;
 
   function activateModelTab(name) {
