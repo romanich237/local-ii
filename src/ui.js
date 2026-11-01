@@ -38,33 +38,8 @@ const modelCatalog = [
   { group: 'Мультимодальные', tag: 'gemma3:12b', name: 'Gemma 3 12B', note: 'Текст и изображения', ram: 'от 24 ГБ RAM' }
 ];
 
-function dashboard({ keys = [], tokenStats = {}, recent = [], model, baseUrl, newKey, theme = 'dark', models = [], modelJobs = [], modelError = '', notice = null, version = 'unknown', updateInfo = null }) {
+function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, theme = 'dark', version = 'unknown', updateInfo = null }) {
   const number = value => Number(value || 0).toLocaleString('ru-RU');
-  const formatBytes = value => {
-    const bytes = Number(value || 0);
-    if (!bytes) return '—';
-    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
-    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    return (bytes / (1024 ** index)).toLocaleString('ru-RU', { maximumFractionDigits: index > 2 ? 1 : 0 }) + ' ' + units[index];
-  };
-  const installedNames = models.map(item => String(item.name || item.model || '')).filter(Boolean);
-  const modelRows = models.map(item => {
-    const name = String(item.name || item.model || '');
-    const active = name === model;
-    const details = item.details || {};
-    return '<tr><td><strong class="mono">' + escapeHtml(name) + '</strong><span class="muted">' + escapeHtml(details.family || 'Ollama') + '</span></td><td>' + formatBytes(item.size) + '</td><td>' + escapeHtml(details.parameter_size || '—') + '</td><td><span class="status ' + (active ? 'status-ok' : 'status-neutral') + '">' + (active ? 'Базовая' : 'Установлена') + '</span></td><td class="actions">' + (active ? '<span class="muted">Активная модель</span>' : '<form method="post" action="/auth/models/delete"><input type="hidden" name="model" value="' + escapeHtml(name) + '"><button class="button button-danger" type="submit">Удалить</button></form>') + '</td></tr>';
-  }).join('') || '<tr><td colspan="5" class="empty">Установленных моделей пока нет</td></tr>';
-  const modelJobRows = modelJobs.map(job => '<div class="model-job"><div><strong class="mono">' + escapeHtml(job.model) + '</strong><span>' + escapeHtml(job.message) + '</span></div><span class="status ' + (job.status === 'success' ? 'status-ok' : job.status === 'error' ? 'status-off' : 'status-loading') + '">' + (job.status === 'success' ? 'Готово' : job.status === 'error' ? 'Ошибка' : 'Загрузка') + '</span></div>').join('');
-  const noticeHtml = notice?.message ? '<div class="alert alert-' + (['success', 'warning'].includes(notice.type) ? notice.type : 'error') + '">' + escapeHtml(notice.message) + '</div>' : modelError ? '<div class="alert alert-error">' + escapeHtml(modelError) + '</div>' : '';
-  const tokenBreakdown = keys.map(key => {
-    const used = Number(key.month_tokens || 0), limit = Number(key.monthly_limit || 0);
-    const percent = limit > 0 ? Math.round(used / limit * 100) : 0;
-    const meter = limit > 0 ? '<progress class="usage-progress" max="' + limit + '" value="' + Math.min(used, limit) + '"></progress>' : '<div class="usage-no-limit"></div>';
-    return '<article class="usage-item"><div class="usage-item-head"><div class="usage-key"><strong>' + escapeHtml(key.name) + '</strong><span class="mono">' + escapeHtml(key.key_prefix) + '…</span></div><span class="usage-percent">' + (limit > 0 ? percent + '%' : 'Без лимита') + '</span></div><div class="usage-item-values"><span>Потрачено <strong>' + number(used) + '</strong></span><span>' + (limit > 0 ? 'Лимит ' + number(limit) : 'Ограничение отключено') + '</span></div>' + meter + '</article>';
-  }).join('') || '<div class="usage-empty">Создайте API-ключ — здесь появится расход токенов</div>';
-  const keyRows = keys.map(key => '<tr><td><strong>' + escapeHtml(key.name) + '</strong><span class="muted mono">' + escapeHtml(key.key_prefix) + '…</span></td><td><span class="status ' + (key.enabled ? 'status-ok' : 'status-off') + '">' + (key.enabled ? 'Активен' : 'Выключен') + '</span></td><td>' + number(key.month_tokens) + '</td><td>' + (key.monthly_limit ? number(key.monthly_limit) : 'Без лимита') + '</td><td class="actions">' + (key.can_reveal ? '<form method="post" action="/auth/keys/' + Number(key.id) + '/reveal"><button class="button button-secondary" type="submit">Показать</button></form>' : '<form method="post" action="/auth/keys/' + Number(key.id) + '/rotate" onsubmit="return confirm(\'Старый ключ будет заменён новым. Продолжить?\')"><button class="button button-secondary" type="submit">Перевыпустить</button></form>') + '<form method="post" action="/auth/keys/' + Number(key.id) + '/toggle"><button class="button button-secondary" type="submit">' + (key.enabled ? 'Отключить' : 'Включить') + '</button></form><form method="post" action="/auth/keys/' + Number(key.id) + '/delete"><button class="button button-danger" type="submit">Удалить</button></form></td></tr>').join('') || '<tr><td colspan="5" class="empty">API-ключей пока нет</td></tr>';
-  const eventRows = recent.map(event => '<tr><td>' + escapeHtml(event.key_name) + '</td><td class="mono">' + escapeHtml(event.model) + '</td><td>' + number(event.total_tokens) + '</td><td>' + (Number(event.latency_ms || 0) / 1000).toFixed(2) + ' с</td><td><span class="status ' + (Number(event.status_code) < 400 ? 'status-ok' : 'status-off') + '">' + Number(event.status_code) + '</span></td><td>' + escapeHtml(new Date(event.created_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })) + '</td></tr>').join('') || '<tr><td colspan="6" class="empty">Запросов пока нет</td></tr>';
-  const modelOptions = Array.from(new Set([model, ...installedNames])).map(name => '<option value="' + escapeHtml(name) + '"' + (name === model ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('');
   const updateStateLabels = { idle: 'Ожидает проверки', checking: 'Проверка…', updating: 'Установка обновления…', current: 'Установлена последняя версия', updated: 'Обновление установлено', error: 'Ошибка проверки' };
   const updateState = updateInfo?.state || 'idle';
   const updateMessage = updateInfo?.message || 'Нажмите кнопку, чтобы проверить наличие новой версии.';
