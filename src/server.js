@@ -459,6 +459,14 @@ app.post('/auth/keys/:id/reveal', requireAdmin, (req, res) => {
   }
 });
 
+app.post('/auth/keys/:id/rotate', requireAdmin, (req, res) => {
+  const record = statements.findKeyById.get(Number(req.params.id));
+  if (!record) return res.status(404).send('API-ключ не найден');
+  const key = createApiKey();
+  statements.rotateKey.run(hashApiKey(key), key.slice(0, 12), encryptApiKey(key, config.sessionSecret), record.id);
+  res.cookie('lai_new_key', key, { httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 60_000, path: '/auth' });
+  res.redirect('/auth/');
+});
 app.post('/auth/keys/:id/toggle', requireAdmin, (req, res) => {
   const id = Number(req.params.id); const key = statements.listKeys.all().find(k => k.id === id);
   if (key) statements.toggleKey.run(key.enabled ? 0 : 1, id);
