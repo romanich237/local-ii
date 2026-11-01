@@ -15,6 +15,14 @@ if ! command -v systemctl >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Устанавливаю часовой пояс Europe/Moscow (UTC+3)…"
+if command -v timedatectl >/dev/null 2>&1; then
+  timedatectl set-timezone Europe/Moscow
+else
+  ln -sfn /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+  printf 'Europe/Moscow\\n' > /etc/timezone
+fi
+
 if command -v apt-get >/dev/null 2>&1; then
   PACKAGE_MANAGER=apt
 elif command -v dnf >/dev/null 2>&1; then
@@ -187,7 +195,7 @@ ADMIN_TELEGRAM_ID=""
 read -rp "Подключить Telegram-бота для управления? [y/N]: " ENABLE_TELEGRAM
 if [[ ${ENABLE_TELEGRAM,,} == "y" || ${ENABLE_TELEGRAM,,} == "yes" ]]; then
   read -rsp "Токен Telegram-бота от @BotFather: " TELEGRAM_BOT_TOKEN; echo
-  read -rp "Ваш личный Telegram ID (число): " ADMIN_TELEGRAM_ID
+  read -rp "Ваш Telegram user ID (число): " ADMIN_TELEGRAM_ID
   if [[ "$TELEGRAM_BOT_TOKEN" =~ ^[0-9]{5,}:[A-Za-z0-9_-]{20,}$ && "$ADMIN_TELEGRAM_ID" =~ ^[0-9]{5,15}$ ]]; then
     TELEGRAM_ENABLED=true
   else
@@ -488,10 +496,11 @@ const config = {
   autoUpdate: true,
   updateIntervalSeconds: 60,
   repositoryBranch: 'main',
+  timeZone: 'Europe/Moscow',
   telegram: {
     enabled: process.env.LOCAL_II_TELEGRAM_ENABLED === 'true',
     botToken: process.env.LOCAL_II_TELEGRAM_TOKEN || '',
-    adminChatId: process.env.LOCAL_II_ADMIN_TELEGRAM_ID || ''
+    adminUserId: process.env.LOCAL_II_ADMIN_TELEGRAM_ID || ''
   }
 };
 fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
@@ -549,7 +558,8 @@ nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
 
-pm2 startOrReload ecosystem.config.cjs
+pm2 startOrReload ecosystem.config.cjs --update-env
+if [[ "$TELEGRAM_ENABLED" != true ]]; then pm2 delete local-ai-telegram >/dev/null 2>&1 || true; fi
 pm2 save
 pm2 startup systemd -u root --hp /root >/dev/null || true
 
@@ -558,6 +568,37 @@ if ! certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$SSL_EMAIL" 
   echo "SSL пока не выпущен. Проверьте A-запись домена и доступность портов 80/443."
   echo "Исправьте A-запись и выполните: sudo certbot --nginx -d ${DOMAIN}"
 fi
+
+echo "Настраиваю автоматический выпуск и продление SSL…" 
+CERTBOT_BIN=$(command -v certbot)
+printf '%s\\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail' 'DOMAIN='\"$DOMAIN\" 'SSL_EMAIL='\"$SSL_EMAIL\" 'CERTBOT='\"$CERTBOT_BIN\" 'if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Certificate Name: $DOMAIN"; then' '  "$CERTBOT" --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$SSL_EMAIL" --redirect || true' 'fi' '"$CERTBOT" renew --quiet --deploy-hook "/bin/systemctl reload nginx"' > /usr/local/bin/local-ii-certbot
+chmod 700 /usr/local/bin/local-ii-certbot
+cat > /etc/systemd/system/local-ii-certbot-renew.service <<'CERTBOT_SERVICE'
+[Unit]
+Description=Автоматический выпуск и продление SSL Local AI Server
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/local-ii-certbot
+CERTBOT_SERVICE
+cat > /etc/systemd/system/local-ii-certbot-renew.timer <<'CERTBOT_TIMER'
+[Unit]
+Description=Проверка SSL-сертификата Local AI Server дважды в сутки
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=12h
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+CERTBOT_TIMER
+systemctl daemon-reload
+systemctl enable --now local-ii-certbot-renew.timer
+
 
 echo ""
 echo "============================================================"
