@@ -41,6 +41,27 @@ function signSession(secret, ttlSeconds = 86400) {
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
+function verifyTelegramWebAppData(initData, botToken, maxAgeSeconds = 86400) {
+  if (typeof initData !== 'string' || !initData || initData.length > 8192) throw new Error('Telegram initData отсутствует или имеет неверный формат');
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get('hash') || '';
+  if (!/^[a-f0-9]{64}$/i.test(receivedHash)) throw new Error('В initData отсутствует корректная подпись');
+  const entries = [...params.entries()].filter(([key]) => key !== 'hash');
+  if (new Set(entries.map(([key]) => key)).size !== entries.length) throw new Error('В initData обнаружены повторяющиеся поля');
+  const dataCheckString = entries.map(([key, value]) => key + '=' + value).sort().join('\n');
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(String(botToken)).digest();
+  const expectedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest();
+  const actualHash = Buffer.from(receivedHash, 'hex');
+  if (actualHash.length !== expectedHash.length || !crypto.timingSafeEqual(actualHash, expectedHash)) throw new Error('Подпись Telegram initData не прошла проверку');
+  const authDate = Number(params.get('auth_date'));
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isInteger(authDate) || authDate > now + 30 || now - authDate > maxAgeSeconds) throw new Error('Данные Telegram устарели. Закройте и снова откройте Mini App');
+  let user;
+  try { user = JSON.parse(params.get('user') || 'null'); } catch { throw new Error('Не удалось прочитать Telegram user из initData'); }
+  if (!user || !Number.isSafeInteger(Number(user.id)) || Number(user.id) <= 0) throw new Error('Telegram не передал корректный user.id');
+  return { user, authDate, queryId: params.get('query_id') || null };
+}
+
 function verifySession(token, secret) {
   try {
     const [payload, signature] = String(token || '').split('.');
@@ -52,4 +73,4 @@ function verifySession(token, secret) {
     return JSON.parse(Buffer.from(payload, 'base64url')).exp > Date.now() / 1000;
   } catch { return false; }
 }
-module.exports = { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, hashPassword, verifyPassword, signSession, verifySession };
+module.exports = { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, hashPassword, verifyPassword, signSession, verifySession, verifyTelegramWebAppData };
