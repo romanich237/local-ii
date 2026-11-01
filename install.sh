@@ -34,17 +34,17 @@ install_system_packages() {
   case "$PACKAGE_MANAGER" in
     apt)
       apt-get update
-      DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx ca-certificates xz-utils build-essential python3 python3-venv python3-pip
+      DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx ca-certificates xz-utils build-essential python3 python3-venv python3-pip openssh-client
       ;;
     dnf)
-      dnf install -y curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip
+      dnf install -y curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip openssh-clients openssh-clients
       ;;
     yum)
       yum install -y epel-release || true
       yum install -y curl git nginx ca-certificates xz gcc gcc-c++ make python3 python3-pip
       ;;
     pacman)
-      pacman -Syu --noconfirm --needed curl git nginx ca-certificates xz base-devel python python-pip
+      pacman -Syu --noconfirm --needed curl git nginx ca-certificates xz base-devel python python-pip openssh
       ;;
     zypper)
       zypper --non-interactive refresh
@@ -106,9 +106,6 @@ REMOTE_URL=$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)
 if [[ "$REMOTE_URL" =~ ^https://[^/]+@github\.com/ ]]; then
   git -C "$APP_DIR" remote set-url origin https://github.com/romanich237/local-ii.git
   REMOTE_URL=https://github.com/romanich237/local-ii.git
-fi
-if [[ "$REMOTE_URL" == https://github.com/* || "$REMOTE_URL" == git@github.com:* || "$REMOTE_URL" == ssh://git@github.com/* ]]; then
-  bash "$APP_DIR/setup-github-access.sh" "$APP_DIR"
 fi
 RAM_GB=$(awk '/MemTotal/{printf "%d", ($2/1024/1024)+0.5}' /proc/meminfo)
 CPU_CORES=$(nproc)
@@ -352,6 +349,11 @@ if (( DISK_GB < 10 )); then echo "Нужно минимум 10 ГБ свобод
 
 echo "Устанавливаю системные зависимости…"
 install_system_packages
+
+if [[ "$REMOTE_URL" == https://github.com/* || "$REMOTE_URL" == git@github.com:* || "$REMOTE_URL" == ssh://git@github.com/* ]]; then
+  bash "$APP_DIR/setup-github-access.sh" "$APP_DIR"
+fi
+
 install_certbot
 
 APP_PORT=$(python3 - <<'PY'
