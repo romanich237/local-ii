@@ -25,30 +25,14 @@
       const response = await fetch('/auth/news', { headers: { Accept: 'application/json' }, cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
-      if (!Array.isArray(data.items) || !data.items.length) {
-        newsContainer.innerHTML = '<p class="hint">Пока нет публикаций. Новости появятся после проверки канала.</p>';
-        return;
-      }
-      newsContainer.innerHTML = data.items.map(item => {
-        const article = document.createElement('article');
-        article.className = 'channel-news-item';
-        const heading = document.createElement('div');
-        heading.className = 'channel-news-meta';
-        const date = document.createElement('time');
-        date.textContent = item.date ? new Date(item.date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) : 'Telegram';
-        heading.append(date);
-        const body = document.createElement('p');
-        body.textContent = item.text || 'Новая публикация';
-        const link = document.createElement('a');
-        link.href = item.url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'Открыть публикацию';
-        article.append(heading, body, link);
-        return article.outerHTML;
-      }).join('');
+      const latest = Array.isArray(data.items) ? data.items[0] : null;
+      newsContainer.replaceChildren();
+      const message = document.createElement('p');
+      message.className = 'channel-broadcast-message';
+      message.textContent = latest?.text?.trim() || 'Пока нет сообщений для рассылки.';
+      newsContainer.append(message);
     } catch {
-      newsContainer.innerHTML = '<p class="hint">Не удалось загрузить новости канала.</p>';
+      newsContainer.textContent = 'Не удалось загрузить сообщение для рассылки.';
     }
   }
   refreshChannelNews();
