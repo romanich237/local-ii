@@ -193,8 +193,8 @@ app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
   if (enabled && !next.telegram.botToken) { setAdminNotice(req, res, 'error', 'Укажите токен Telegram-бота.'); return res.redirect('/auth/#settings'); }
   saveConfig(next);
   try {
-    await execFileAsync('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env'], { cwd: config.root, timeout: 20000 });
-    if (!enabled) await execFileAsync('pm2', ['delete', 'local-ai-telegram'], { cwd: config.root, timeout: 10000 }).catch(() => {});
+    await execFileAsync('pm2', ['delete', 'local-ai-telegram'], { cwd: config.root, timeout: 10000 }).catch(() => {});
+    if (enabled) await execFileAsync('pm2', ['start', 'src/telegram.js', '--name', 'local-ai-telegram', '--update-env'], { cwd: config.root, timeout: 20000 });
     await execFileAsync('pm2', ['save'], { cwd: config.root, timeout: 10000 });
     setAdminNotice(req, res, 'success', enabled ? 'Настройки Telegram сохранены. Бот перезапущен.' : 'Telegram-бот отключён.');
   } catch (error) {
