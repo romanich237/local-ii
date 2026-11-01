@@ -5,7 +5,7 @@ const path = require('node:path');
 const { root } = require('./config');
 
 const templates = Object.fromEntries(
-  ['login', 'dashboard', 'models', 'docs'].map(name => [name, fs.readFileSync(path.join(root, 'views', name + '.html'), 'utf8')])
+  ['login', 'dashboard', 'models', 'docs'].map(name => [name, fs.readFileSync(path.join(__dirname, 'html', name + '.html'), 'utf8')])
 );
 
 function escapeHtml(value) {
