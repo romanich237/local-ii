@@ -43,16 +43,22 @@ function writeStatus(state, details = {}) {
   fs.renameSync(tempPath, statusPath);
 }
 function fetchRemote() {
-  const hasDeployKey = fs.existsSync(deployKey);
-  if (hasDeployKey) {
-    const sshCommand = 'ssh -i ' + deployKey + ' -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=' + sshKnownHosts;
-    run('git', ['remote', 'set-url', 'origin', repositorySsh]);
-    run('git', ['config', '--local', 'core.sshCommand', sshCommand]);
-    run('git', ['fetch', '--prune', 'origin', branch], { GIT_SSH_COMMAND: sshCommand });
-  } else {
+  // Если репозиторий открыт, используем HTTPS без ключей и PAT.
+  try {
+    run('git', ['-c', 'credential.helper=', 'ls-remote', repositoryUrl, 'HEAD']);
     run('git', ['remote', 'set-url', 'origin', repositoryUrl]);
+    try { run('git', ['config', '--local', '--unset', 'core.sshCommand']); } catch {}
     run('git', ['-c', 'credential.helper=', 'fetch', '--prune', 'origin', branch]);
+    return;
+  } catch {}
+
+  if (!fs.existsSync(deployKey)) {
+    throw new Error('Репозиторий недоступен по HTTPS. Для приватного репозитория настройте Deploy Key.');
   }
+  const sshCommand = 'ssh -i ' + deployKey + ' -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=' + sshKnownHosts;
+  run('git', ['remote', 'set-url', 'origin', repositorySsh]);
+  run('git', ['config', '--local', 'core.sshCommand', sshCommand]);
+  run('git', ['fetch', '--prune', 'origin', branch], { GIT_SSH_COMMAND: sshCommand });
 }
 function check(manual = false) {
   if ((!manual && config.autoUpdate === false) || updating) return;
@@ -78,14 +84,12 @@ function check(manual = false) {
     } else {
       run('npm', ['install', '--omit=dev', '--no-package-lock']);
     }
+    writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'Обновление установлено.' });
+    run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
     const telegram = config.telegram || {};
-    if (telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId)) {
-      run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
-    } else {
-      run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
+    if (!telegram.enabled || !telegram.botToken || !(telegram.adminUserId || telegram.adminChatId)) {
       try { run('pm2', ['delete', 'local-ai-telegram']); } catch {}
     }
-    writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'Обновление установлено.' });
     console.log('[update] Установлена версия ' + installedVersion());
   } catch (error) {
     const detail = String(error.stderr || error.message || 'Неизвестная ошибка').slice(0, 1200);
