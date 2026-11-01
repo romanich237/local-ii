@@ -9,7 +9,7 @@ const serviceVersion = require('../package.json').version;
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
 const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, signSession, verifySession } = require('./security');
-const { loginPage, dashboard, docsPage } = require('./ui');
+const { loginPage, dashboard, modelsPage, docsPage } = require('./ui');
 
 const config = loadConfig();
 const app = express();
@@ -21,6 +21,7 @@ app.use('/assets', express.static(path.join(config.root, 'public'), { fallthroug
 
 const loginAttempts = new Map();
 const modelJobs = new Map();
+let previousCpuTimes = null;
 const modelNamePattern = /^[a-zA-Z0-9._/-]+(?::[a-zA-Z0-9._-]+)?$/;
 function cookieMap(req) {
   try {
@@ -205,14 +206,40 @@ app.get('/auth/server-status', requireAdmin, async (_req, res) => {
   try {
     const stats = fs.statfsSync(config.root);
     disk = { total: stats.blocks * stats.bsize, free: stats.bavail * stats.bsize };
+    disk.used = Math.max(0, disk.total - disk.free);
+    disk.percent = disk.total ? Math.round(disk.used / disk.total * 100) : 0;
+  } catch {}
+  const cpuTimes = os.cpus().map(cpu => cpu.times);
+  const totals = cpuTimes.reduce((acc, times) => {
+    acc.total += times.user + times.nice + times.sys + times.idle + times.irq;
+    acc.idle += times.idle;
+    return acc;
+  }, { total: 0, idle: 0 });
+  let cpuPercent = 0;
+  if (previousCpuTimes) {
+    const totalDelta = totals.total - previousCpuTimes.total;
+    const idleDelta = totals.idle - previousCpuTimes.idle;
+    if (totalDelta > 0) cpuPercent = Math.max(0, Math.min(100, Math.round((1 - idleDelta / totalDelta) * 100)));
+  }
+  previousCpuTimes = totals;
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = Math.max(0, totalMemory - freeMemory);
+  const memoryPercent = totalMemory ? Math.round(usedMemory / totalMemory * 100) : 0;
+  let operatingSystem = os.type() + ' ' + os.release();
+  try {
+    const release = fs.readFileSync('/etc/os-release', 'utf8');
+    const match = release.match(/^PRETTY_NAME=(?:\"([^\"]+)\"|'([^']+)'|([^\\n]+))$/m);
+    if (match) operatingSystem = (match[1] || match[2] || match[3] || '').trim();
   } catch {}
   res.setHeader('Cache-Control', 'no-store');
   res.json({
-    version: serviceVersion, timeZone: config.timeZone || 'Europe/Moscow', hostname: os.hostname(), platform: os.type() + ' ' + os.release(),
-    arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
-    loadAverage: os.loadavg().map(value => Number(value.toFixed(2))),
-    memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem() },
-    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel, telegramEnabled: Boolean(config.telegram?.enabled && config.telegram?.botToken && (config.telegram?.adminUserId || config.telegram?.adminChatId))
+    version: serviceVersion, timeZone: config.timeZone || 'Europe/Moscow', hostname: os.hostname(),
+    platform: operatingSystem, arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
+    cpu: { percent: cpuPercent },
+    memory: { total: totalMemory, free: freeMemory, used: usedMemory, percent: memoryPercent },
+    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel,
+    telegramEnabled: Boolean(config.telegram?.enabled && config.telegram?.botToken && (config.telegram?.adminUserId || config.telegram?.adminChatId))
   });
 });
 
@@ -321,6 +348,19 @@ app.post('/auth/login', (req, res) => {
   res.redirect('/auth/');
 });
 app.get('/auth/logout', (_req, res) => { res.clearCookie('lai_session', { path: '/auth' }); res.redirect('/auth/login'); });
+app.get('/auth/models', requireAdmin, async (req, res) => {
+  const cookies = cookieMap(req);
+  let notice = null;
+  if (cookies.lai_notice) {
+    res.clearCookie('lai_notice', { path: '/auth' });
+    try { notice = JSON.parse(cookies.lai_notice); } catch {}
+  }
+  let models = [];
+  let modelError = '';
+  try { models = await listInstalledModels(); }
+  catch (error) { modelError = 'Не удалось получить список моделей: ' + error.message; }
+  res.send(modelsPage({ models, model: config.defaultModel, modelJobs: Array.from(modelJobs.values()).slice(-8).reverse(), modelError, notice, theme: selectedTheme(req) }));
+});
 app.get('/auth/', requireAdmin, async (req, res) => {
   const cookies = cookieMap(req);
   const newKey = cookies.lai_new_key || '';
@@ -331,11 +371,6 @@ app.get('/auth/', requireAdmin, async (req, res) => {
     try { notice = JSON.parse(cookies.lai_notice); } catch { notice = null; }
   }
 
-  let models = [];
-  let modelError = '';
-  try { models = await listInstalledModels(); }
-  catch (error) { modelError = `Не удалось получить список моделей: ${error.message}`; }
-
   res.send(dashboard({
     keys: statements.listKeys.all(),
     tokenStats: statements.tokenStats.get(),
@@ -344,9 +379,6 @@ app.get('/auth/', requireAdmin, async (req, res) => {
     baseUrl: config.baseUrl,
     newKey,
     theme: selectedTheme(req),
-    models,
-    modelJobs: Array.from(modelJobs.values()).slice(-8).reverse(),
-    modelError,
     notice,
     version: serviceVersion,
     updateInfo: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.root, 'data', 'update-status.json'), 'utf8')); } catch { return null; } })()
@@ -358,30 +390,30 @@ app.post('/auth/models/pull', requireAdmin, (req, res) => {
   const model = customModel || String(req.body.modelPreset || '').trim();
   if (!model || model.length > 160 || !modelNamePattern.test(model)) {
     setAdminNotice(req, res, 'error', 'Укажите корректное имя модели, например qwen3:4b');
-    return res.redirect('/auth/#models');
+    return res.redirect('/auth/models');
   }
   if (modelJobs.get(model)?.status === 'loading') {
     setAdminNotice(req, res, 'warning', `Модель ${model} уже скачивается`);
-    return res.redirect('/auth/#models');
+    return res.redirect('/auth/models');
   }
   startModelPull(model);
   setAdminNotice(req, res, 'success', `Скачивание ${model} запущено. Обновите страницу, чтобы увидеть результат.`);
-  res.redirect('/auth/#models');
+  res.redirect('/auth/models');
 });
 
 app.post('/auth/models/delete', requireAdmin, async (req, res) => {
   const model = String(req.body.model || '').trim();
   if (!model || model.length > 160 || !modelNamePattern.test(model)) {
     setAdminNotice(req, res, 'error', 'Передано некорректное имя модели');
-    return res.redirect('/auth/#models');
+    return res.redirect('/auth/models');
   }
   if (model === config.defaultModel) {
     setAdminNotice(req, res, 'warning', 'Активную базовую модель удалить нельзя');
-    return res.redirect('/auth/#models');
+    return res.redirect('/auth/models');
   }
   if (modelJobs.get(model)?.status === 'loading') {
     setAdminNotice(req, res, 'warning', 'Нельзя удалить модель во время скачивания');
-    return res.redirect('/auth/#models');
+    return res.redirect('/auth/models');
   }
   try {
     const upstream = await fetch(`${config.ollamaUrl}/api/delete`, {
@@ -397,7 +429,7 @@ app.post('/auth/models/delete', requireAdmin, async (req, res) => {
   } catch (error) {
     setAdminNotice(req, res, 'error', `Не удалось удалить модель: ${error.message}`);
   }
-  res.redirect('/auth/#models');
+  res.redirect('/auth/models');
 });
 
 app.post('/auth/keys', requireAdmin, (req, res) => {
