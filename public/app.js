@@ -134,38 +134,47 @@
 
   const modelTabs = $$('[data-model-tab]');
   const modelPanels = $$('[data-model-panel]');
+  const catalogPanel = $('[data-full-catalog]');
+  const catalogSearch = $('[data-catalog-search]');
+  const catalogStatus = $('[data-catalog-status]');
+  const catalogRefresh = $('[data-catalog-refresh]');
+  let fullCatalog = [];
   let catalogLoaded = false;
+  let catalogRequest = null;
 
-  function activateModelTab(name) {
+  function activateModelTab(name, options = {}) {
     const selected = modelTabs.find(tab => tab.dataset.modelTab === name);
     if (!selected) return;
-    for (const tab of modelTabs) {
+
+    modelTabs.forEach(tab => {
       const active = tab === selected;
       tab.classList.toggle('is-active', active);
-      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.setAttribute('aria-selected', String(active));
       tab.tabIndex = active ? 0 : -1;
-    }
-    for (const panel of modelPanels) {
-      panel.hidden = panel.dataset.modelPanel !== name;
-    }
-    if (name === 'catalog' && !catalogLoaded) {
-      catalogLoaded = true;
-      loadFullCatalog();
-    }
+    });
+
+    modelPanels.forEach(panel => {
+      const active = panel.dataset.modelPanel === name;
+      panel.hidden = !active;
+      panel.setAttribute('aria-hidden', String(!active));
+    });
+
+    if (name === 'catalog' && !catalogLoaded) loadFullCatalog();
+    if (options.focus) selected.focus();
   }
 
   modelTabs.forEach((tab, index) => {
     tab.addEventListener('click', () => activateModelTab(tab.dataset.modelTab));
     tab.addEventListener('keydown', event => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+      if (!keys.includes(event.key) || !modelTabs.length) return;
       event.preventDefault();
       let next = index;
       if (event.key === 'ArrowRight') next = (index + 1) % modelTabs.length;
       if (event.key === 'ArrowLeft') next = (index - 1 + modelTabs.length) % modelTabs.length;
       if (event.key === 'Home') next = 0;
       if (event.key === 'End') next = modelTabs.length - 1;
-      modelTabs[next].focus();
-      activateModelTab(modelTabs[next].dataset.modelTab);
+      activateModelTab(modelTabs[next].dataset.modelTab, { focus: true });
     });
   });
 
@@ -175,47 +184,89 @@
     activateModelTab(initial);
   }
 
-  const catalogPanel = $('[data-full-catalog]');
-  const catalogSearch = $('[data-catalog-search]');
-  const catalogStatus = $('[data-catalog-status]');
-  let fullCatalog = [];
   function renderCatalog() {
     if (!catalogPanel) return;
-    const query = (catalogSearch?.value || '').trim().toLowerCase();
-    const visible = fullCatalog.filter(item => item.name.toLowerCase().includes(query));
-    catalogPanel.replaceChildren();
+    const query = (catalogSearch?.value || '').trim().toLocaleLowerCase('ru-RU');
+    const visible = fullCatalog.filter(item => String(item.name || '').toLocaleLowerCase('ru-RU').includes(query));
+    const fragment = document.createDocumentFragment();
+
     for (const item of visible) {
       const card = document.createElement('article');
       card.className = 'catalog-item';
-      const title = document.createElement('h3'); title.textContent = item.name;
-      const description = document.createElement('p'); description.textContent = 'Официальная модель Ollama';
-      const meta = document.createElement('div'); meta.className = 'catalog-meta';
-      const tag = document.createElement('code'); tag.textContent = item.tag;
-      const link = document.createElement('a'); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Страница модели';
+      const title = document.createElement('h3');
+      title.textContent = item.name;
+      const description = document.createElement('p');
+      description.textContent = 'Официальная модель Ollama';
+      const meta = document.createElement('div');
+      meta.className = 'catalog-meta';
+      const tag = document.createElement('code');
+      tag.textContent = item.tag;
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Страница модели';
       meta.append(tag, link);
-      const form = document.createElement('form'); form.method = 'post'; form.action = '/auth/models/pull';
-      const input = document.createElement('input'); input.type = 'hidden'; input.name = 'modelPreset'; input.value = item.tag;
-      const button = document.createElement('button'); button.type = 'submit'; button.className = 'button button-secondary'; button.textContent = 'Установить';
-      form.append(input, button); card.append(title, description, meta, form); catalogPanel.append(card);
+
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = '/auth/models/pull';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'modelPreset';
+      input.value = item.tag;
+      const button = document.createElement('button');
+      button.type = 'submit';
+      button.className = 'button button-secondary';
+      button.textContent = 'Установить';
+      form.append(input, button);
+      card.append(title, description, meta, form);
+      fragment.append(card);
     }
+
+    catalogPanel.replaceChildren(fragment);
     if (!visible.length) catalogPanel.textContent = 'Модели не найдены.';
   }
-  async function loadFullCatalog() {
+
+  async function loadFullCatalog(force = false) {
     if (!catalogPanel || !catalogStatus) return;
-    catalogStatus.textContent = 'Загружаем список с ollama.com…';
-    try {
-      const response = await fetch('/auth/model-catalog', { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Ошибка каталога');
-      fullCatalog = Array.isArray(data.models) ? data.models : [];
-      catalogStatus.textContent = 'Найдено моделей: ' + fullCatalog.length + '. Источник: ollama.com/library.';
-      renderCatalog();
-    } catch (error) { catalogStatus.textContent = error.message; }
+    if (catalogRequest) return catalogRequest;
+    if (catalogLoaded && !force) return;
+
+    catalogStatus.textContent = 'Загружаем каталог…';
+    if (catalogRefresh) {
+      catalogRefresh.disabled = true;
+      catalogRefresh.textContent = 'Загрузка…';
+    }
+
+    catalogRequest = (async () => {
+      try {
+        const response = await fetch('/auth/model-catalog', {
+          cache: force ? 'reload' : 'default',
+          headers: { Accept: 'application/json' }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Не удалось загрузить каталог');
+        fullCatalog = Array.isArray(data.models) ? data.models : [];
+        catalogLoaded = true;
+        catalogStatus.textContent = 'Найдено моделей: ' + fullCatalog.length + ' · ollama.com/library';
+        renderCatalog();
+      } catch (error) {
+        catalogStatus.textContent = (error.message || 'Ошибка загрузки') + '. Нажмите «Обновить каталог», чтобы повторить.';
+        catalogLoaded = false;
+      } finally {
+        catalogRequest = null;
+        if (catalogRefresh) {
+          catalogRefresh.disabled = false;
+          catalogRefresh.textContent = 'Обновить каталог';
+        }
+      }
+    })();
+    return catalogRequest;
   }
-  if (catalogPanel) {
-    catalogSearch?.addEventListener('input', renderCatalog);
-    $('[data-catalog-refresh]')?.addEventListener('click', loadFullCatalog);
-  }
+
+  catalogSearch?.addEventListener('input', renderCatalog);
+  catalogRefresh?.addEventListener('click', () => loadFullCatalog(true));
 
   const chatForm = $('[data-chat-form]');
   const settings = $('[data-chat-settings]');
