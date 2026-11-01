@@ -1106,3 +1106,11 @@ input, select, textarea { min-width: 0; }
 @media (max-width: 640px) {
   .channel-news .section-head { align-items: flex-start; flex-direction: column; }
 }
+
+
+/* Model library catalog */
+[data-full-catalog] { margin-top: 14px; }
+[data-full-catalog] .catalog-item { min-width: 0; }
+[data-catalog-search] { max-width: 100%; }
+.checkbox-label { display: flex; align-items: center; gap: 9px; }
+.checkbox-label input { width: auto; }
