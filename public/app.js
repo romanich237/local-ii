@@ -103,6 +103,35 @@
     if (event.target.matches('.key-rotate-form') && !window.confirm('Старый ключ будет заменён новым. Продолжить?')) event.preventDefault();
   });
 
+  document.addEventListener('click', async event => {
+    const button = event.target.closest('[data-copy-model]');
+    if (!button) return;
+    const value = button.dataset.copyModel || '';
+    if (!value) return;
+    const original = button.textContent;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const field = document.createElement('textarea');
+        field.value = value;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.append(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Clipboard unavailable');
+      }
+      button.textContent = 'Скопировано';
+      button.disabled = true;
+      window.setTimeout(() => { button.textContent = original; button.disabled = false; }, 1400);
+    } catch {
+      button.textContent = 'Не удалось скопировать';
+      window.setTimeout(() => { button.textContent = original; }, 1800);
+    }
+  });
+
   const modelTabs = $('[data-model-tab]');
   const modelPanels = $('[data-model-panel]');
   let catalogLoaded = false;
