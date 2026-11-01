@@ -35,8 +35,8 @@ function check() {
     } else {
       // Публичный репозиторий доступен по HTTPS без PAT и без авторизации GitHub-профилем.
       run('git', ['remote', 'set-url', 'origin', 'https://github.com/romanich237/local-ii.git']);
-      run('git', ['config', '--local', '--unset', 'credential.helper']);
-      run('git', ['fetch', '--prune', 'origin', branch]);
+      // Empty helper disables inherited credential helpers; public HTTPS never needs a personal PAT.
+      run('git', ['-c', 'credential.helper=', 'fetch', '--prune', 'origin', branch]);
     }
 
     const local = run('git', ['rev-parse', 'HEAD']);
