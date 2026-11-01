@@ -53,7 +53,8 @@ function help() {
     '/model тег — выбрать модель',
     '/system текст — задать системный промт',
     '/max число — максимум выходных токенов',
-    '/status — состояние Ollama и модели'
+    '/status — состояние Ollama и модели',
+    '/news — открыть официальный канал новостей'
   ].join('\n');
 }
 async function showKeys() {
@@ -118,6 +119,7 @@ async function handleMessage(message) {
 
   if (name === 'start' || name === 'help') return send(help());
   if (name === 'keys') return showKeys();
+  if (name === 'news') return send('Новости Local AI Server: https://t.me/localiirom');
   if (name === 'newkey') return createKeyFromCommand(args);
   if (name === 'reveal') {
     const keyId = Number.parseInt(args, 10);
