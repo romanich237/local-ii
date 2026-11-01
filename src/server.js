@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const path = require('node:path');
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
-const { createApiKey, hashApiKey, verifyPassword, signSession, verifySession } = require('./security');
+const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, signSession, verifySession } = require('./security');
 const { loginPage, dashboard, docsPage } = require('./ui');
 
 const config = loadConfig();
@@ -263,10 +263,28 @@ app.post('/auth/keys', requireAdmin, (req, res) => {
   const monthlyLimit = Math.max(0, Number.parseInt(req.body.monthlyLimit || '0', 10) || 0);
   if (!name) return res.status(400).send('Название обязательно');
   const key = createApiKey();
-  statements.createKey.run(name, hashApiKey(key), key.slice(0, 12), monthlyLimit);
+  statements.createKey.run(name, hashApiKey(key), key.slice(0, 12), encryptApiKey(key, config.sessionSecret), monthlyLimit);
   res.cookie('lai_new_key', key, { httpOnly: true, sameSite: 'strict', secure: isSecure(req), maxAge: 60_000, path: '/auth' });
   res.redirect('/auth/');
 });
+
+app.post('/auth/keys/:id/reveal', requireAdmin, (req, res) => {
+  const record = statements.findKeyById.get(Number(req.params.id));
+  if (!record) return res.status(404).send('API-ключ не найден');
+  if (!record.encrypted_key) {
+    return res.status(409).send('Этот ключ создан до обновления системы хранения. Его исходное значение восстановить нельзя. Создайте новый ключ.');
+  }
+  try {
+    const key = decryptApiKey(record.encrypted_key, config.sessionSecret);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.type('html').send(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>API-ключ</title><body style="font:16px system-ui;max-width:760px;margin:48px auto;padding:0 20px"><h1>API-ключ: ${String(record.name).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</h1><p>Не передавайте это значение третьим лицам.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eee;color:#111;border-radius:8px">${key}</pre><p><a href="/auth/">Вернуться в панель</a></p></body></html>`);
+  } catch (error) {
+    console.error('[keys] Не удалось расшифровать ключ:', error.message);
+    res.status(500).send('Не удалось расшифровать ключ. Проверьте sessionSecret в config.json.');
+  }
+});
+
 app.post('/auth/keys/:id/toggle', requireAdmin, (req, res) => {
   const id = Number(req.params.id); const key = statements.listKeys.all().find(k => k.id === id);
   if (key) statements.toggleKey.run(key.enabled ? 0 : 1, id);
