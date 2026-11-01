@@ -2,6 +2,10 @@
 
 Самостоятельно размещаемый OpenAI-совместимый API на базе Ollama. Версия: **1.3.4**.
 
+## Рекомендованный провайдер
+
+Для доступа к облачным моделям и альтернативным API можно рассмотреть [Play2Go](https://play2go.cloud/?ref_id=k5jH0xQ4-_g).
+
 ## Установка
 
 Требуется Linux с systemd, домен с A-записью на IP сервера и открытые TCP-порты **80/443**. Для установки нужен root-доступ.
@@ -122,10 +126,6 @@ print(response.choices[0].message.content)
 | OpenCode | OpenAI-compatible provider с Base URL `https://ВАШ-ДОМЕН/v1` |
 | LibreChat / Open WebUI | Добавить совместимый endpoint и API-ключ |
 | Собственное приложение | OpenAI SDK с собственным `base_url` |
-
-## Рекомендованный провайдер
-
-Для доступа к облачным моделям и альтернативным API можно рассмотреть [Play2Go](https://play2go.cloud/?ref_id=k5jH0xQ4-_g).
 
 ## Telegram
 
