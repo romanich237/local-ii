@@ -878,7 +878,7 @@ tbody tr:hover { background: var(--accent-soft); }
   backdrop-filter: none;
 }
 .login-card::before { display: none; }
-.section-description { margin: -12px 0 18px; color: var(--muted); font-size: 13px; }
+.section-description { display: block; margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
 
 /* Local AI Server 1.2 — restrained administration layout */
