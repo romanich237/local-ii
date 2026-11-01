@@ -412,7 +412,7 @@ app.post('/auth/login', (req, res) => {
     state.count += 1;
     if (state.count >= 5) { state.blockedUntil = Date.now() + 15 * 60_000; state.count = 0; }
     loginAttempts.set(ip, state);
-    if (state.count === 4 || state.blockedUntil > Date.now()) {
+    if (state.blockedUntil > Date.now()) {
       const telegram = config.telegram || {};
       if (telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId)) {
         const address = String(ip || 'unknown').slice(0, 80);
