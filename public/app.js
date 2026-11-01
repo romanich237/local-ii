@@ -18,6 +18,42 @@
     return (days ? days + ' д ' : '') + hours + ' ч ' + minutes + ' мин';
   };
 
+  const newsContainer = $('[data-channel-news]');
+  async function refreshChannelNews() {
+    if (!newsContainer) return;
+    try {
+      const response = await fetch('/auth/news', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      if (!Array.isArray(data.items) || !data.items.length) {
+        newsContainer.innerHTML = '<p class="hint">Пока нет публикаций. Новости появятся после проверки канала.</p>';
+        return;
+      }
+      newsContainer.innerHTML = data.items.map(item => {
+        const article = document.createElement('article');
+        article.className = 'channel-news-item';
+        const heading = document.createElement('div');
+        heading.className = 'channel-news-meta';
+        const date = document.createElement('time');
+        date.textContent = item.date ? new Date(item.date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) : 'Telegram';
+        heading.append(date);
+        const body = document.createElement('p');
+        body.textContent = item.text || 'Новая публикация';
+        const link = document.createElement('a');
+        link.href = item.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Открыть публикацию';
+        article.append(heading, body, link);
+        return article.outerHTML;
+      }).join('');
+    } catch {
+      newsContainer.innerHTML = '<p class="hint">Не удалось загрузить новости канала.</p>';
+    }
+  }
+  refreshChannelNews();
+  if (newsContainer) window.setInterval(refreshChannelNews, 60000);
+
   const serverStatus = $('[data-server-status]');
   const serverFields = {
     version: $('[data-server-version]'), platform: $('[data-server-platform]'), cpu: $('[data-server-cpu]'),
