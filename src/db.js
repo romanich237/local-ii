@@ -67,6 +67,17 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_usage_key_date ON usage_events(key_id, created_at);
+  CREATE TABLE IF NOT EXISTS chat_usage_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    latency_ms INTEGER NOT NULL DEFAULT 0,
+    status_code INTEGER NOT NULL DEFAULT 200,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_usage_date ON chat_usage_events(created_at);
 `);
 
 const keyColumns = db.prepare('PRAGMA table_info(api_keys)').all().map(column => column.name);
@@ -82,6 +93,7 @@ const statements = {
     FROM api_keys k LEFT JOIN usage_events u ON u.key_id=k.id GROUP BY k.id ORDER BY k.id DESC`),
   monthUsage: db.prepare("SELECT COALESCE(SUM(total_tokens),0) total FROM usage_events WHERE key_id=? AND created_at >= datetime('now','+3 hours','start of month','-3 hours')"),
   recordUsage: db.prepare('INSERT INTO usage_events(key_id,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,status_code) VALUES(?,?,?,?,?,?,?)'),
+  recordChatUsage: db.prepare('INSERT INTO chat_usage_events(model,prompt_tokens,completion_tokens,total_tokens,latency_ms,status_code) VALUES(?,?,?,?,?,?)'),
   touchKey: db.prepare('UPDATE api_keys SET last_used_at=CURRENT_TIMESTAMP WHERE id=?'),
   toggleKey: db.prepare('UPDATE api_keys SET enabled=? WHERE id=?'),
   rotateKey: db.prepare('UPDATE api_keys SET key_hash=?,key_prefix=?,encrypted_key=? WHERE id=?'),
@@ -94,8 +106,13 @@ const statements = {
     COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN 1 ELSE 0 END),0) month_requests,
     COALESCE(ROUND(AVG(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN total_tokens END)),0) avg_tokens
     FROM usage_events`),
-  recent: db.prepare(`SELECT u.created_at,k.name key_name,u.model,u.total_tokens,u.latency_ms,u.status_code
-    FROM usage_events u JOIN api_keys k ON k.id=u.key_id ORDER BY u.id DESC LIMIT 50`)
+  recent: db.prepare(`SELECT * FROM (
+      SELECT u.created_at,k.name key_name,u.model,u.total_tokens,u.latency_ms,u.status_code,'API' source,u.id event_id
+      FROM usage_events u JOIN api_keys k ON k.id=u.key_id
+      UNION ALL
+      SELECT c.created_at,'Админ-панель' key_name,c.model,c.total_tokens,c.latency_ms,c.status_code,'Чат' source,c.id event_id
+      FROM chat_usage_events c
+    ) ORDER BY created_at DESC,event_id DESC LIMIT 50`)
 };
 
 module.exports = { db, statements };
