@@ -102,6 +102,7 @@ function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = '
       <td>${key.monthly_limit ? Number(key.monthly_limit).toLocaleString('ru-RU') : 'Без лимита'}</td>
       <td class="actions">
         ${key.can_reveal ? `<form method="post" action="/auth/keys/${Number(key.id)}/reveal"><button class="button button-secondary" type="submit">Показать</button></form>` : '<span class="muted">Старый ключ: только хэш</span>'}
+        ${key.can_reveal ? `<form method="post" action="/auth/keys/${Number(key.id)}/reveal"><button class="button button-secondary" type="submit">Показать</button></form>` : '<span class="muted">Старый ключ: только хэш</span>'}
         <form method="post" action="/auth/keys/${Number(key.id)}/toggle"><button class="button button-secondary" type="submit">${key.enabled ? 'Отключить' : 'Включить'}</button></form>
         <form method="post" action="/auth/keys/${Number(key.id)}/delete"><button class="button button-danger" type="submit">Удалить</button></form>
       </td>
@@ -135,7 +136,7 @@ function dashboard({ keys, tokenStats, recent, model, baseUrl, newKey, theme = '
     TOKEN_BREAKDOWN: tokenBreakdown,
     KEY_ROWS: keyRows,
     EVENT_ROWS: eventRows,
-    NEW_KEY: newKey ? `<section class="card key-created"><h2>Новый API-ключ</h2><p>Скопируйте его сейчас. Позже полный ключ не показывается.</p><code>${escapeHtml(newKey)}</code></section>` : ''
+    NEW_KEY: newKey ? `<section class="card key-created"><h2>Новый API-ключ</h2><p>Ключ зашифрован в базе и доступен для просмотра после входа администратора.</p><code>${escapeHtml(newKey)}</code></section>` : ''
   });
 }
 
