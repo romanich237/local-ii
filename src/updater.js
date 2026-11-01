@@ -60,6 +60,21 @@ function fetchRemote() {
   run('git', ['config', '--local', 'core.sshCommand', sshCommand]);
   run('git', ['fetch', '--prune', 'origin', branch], { GIT_SSH_COMMAND: sshCommand });
 }
+function restartTelegram() {
+  const telegram = config.telegram || {};
+  const enabled = Boolean(telegram.enabled && telegram.botToken && (telegram.adminUserId || telegram.adminChatId));
+  if (!enabled) {
+    try { run('pm2', ['delete', 'local-ai-telegram']); } catch {}
+    return;
+  }
+  try {
+    run('pm2', ['restart', 'local-ai-telegram', '--update-env']);
+  } catch {
+    run('pm2', ['start', 'src/telegram.js', '--name', 'local-ai-telegram', '--update-env']);
+  }
+  console.log('[update] Telegram-бот перезапущен.');
+}
+
 function check(manual = false) {
   if ((!manual && config.autoUpdate === false) || updating) return;
   updating = true;
@@ -80,6 +95,7 @@ function check(manual = false) {
       if (requestedRuntimeVersion && requestedRuntimeVersion !== installedVersion()) {
         writeStatus('updating', { latestVersion, message: 'Исходники актуальны. Перезапускается API для синхронизации версии…' });
         run('pm2', ['restart', 'local-ai-api', '--update-env']);
+        restartTelegram();
         writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'API перезапущен. Версия синхронизирована.' });
         console.log('[update] API перезапущен для синхронизации runtime-версии.');
       } else {
@@ -98,10 +114,10 @@ function check(manual = false) {
     }
     writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'Обновление установлено.' });
     run('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env']);
-    const telegram = config.telegram || {};
-    if (!telegram.enabled || !telegram.botToken || !(telegram.adminUserId || telegram.adminChatId)) {
-      try { run('pm2', ['delete', 'local-ai-telegram']); } catch {}
-    }
+    // startOrReload applies the ecosystem, then explicitly reload the bot to ensure
+    // it runs the exact same release as the API and updater.
+    restartTelegram();
+    run('pm2', ['save']);
     console.log('[update] Установлена версия ' + installedVersion());
   } catch (error) {
     const detail = String(error.stderr || error.message || 'Неизвестная ошибка').slice(0, 1200);
