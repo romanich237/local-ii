@@ -64,4 +64,4 @@ function check() {
 
 console.log(`[update] Репозиторий romanich237/local-ii, ветка ${branch}; проверка каждые ${config.updateIntervalSeconds || 60} сек.`);
 check();
-setInterval(check, Math.max(30, config.updateIntervalSeconds || 60) * 1000).unref();
+setInterval(check, Math.max(30, config.updateIntervalSeconds || 60) * 1000);
