@@ -103,6 +103,49 @@
     if (event.target.matches('.key-rotate-form') && !window.confirm('Старый ключ будет заменён новым. Продолжить?')) event.preventDefault();
   });
 
+  const modelTabs = $('[data-model-tab]');
+  const modelPanels = $('[data-model-panel]');
+  let catalogLoaded = false;
+
+  function activateModelTab(name) {
+    const selected = modelTabs.find(tab => tab.dataset.modelTab === name);
+    if (!selected) return;
+    for (const tab of modelTabs) {
+      const active = tab === selected;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of modelPanels) {
+      panel.hidden = panel.dataset.modelPanel !== name;
+    }
+    if (name === 'catalog' && !catalogLoaded) {
+      catalogLoaded = true;
+      loadFullCatalog();
+    }
+  }
+
+  modelTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => activateModelTab(tab.dataset.modelTab));
+    tab.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      let next = index;
+      if (event.key === 'ArrowRight') next = (index + 1) % modelTabs.length;
+      if (event.key === 'ArrowLeft') next = (index - 1 + modelTabs.length) % modelTabs.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = modelTabs.length - 1;
+      modelTabs[next].focus();
+      activateModelTab(modelTabs[next].dataset.modelTab);
+    });
+  });
+
+  if (modelTabs.length && modelPanels.length) {
+    const initial = modelTabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.modelTab
+      || modelTabs[0].dataset.modelTab;
+    activateModelTab(initial);
+  }
+
   const catalogPanel = $('[data-full-catalog]');
   const catalogSearch = $('[data-catalog-search]');
   const catalogStatus = $('[data-catalog-status]');
@@ -141,7 +184,6 @@
     } catch (error) { catalogStatus.textContent = error.message; }
   }
   if (catalogPanel) {
-    loadFullCatalog();
     catalogSearch?.addEventListener('input', renderCatalog);
     $('[data-catalog-refresh]')?.addEventListener('click', loadFullCatalog);
   }
