@@ -194,6 +194,7 @@ app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
   saveConfig(next);
   try {
     await execFileAsync('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env'], { cwd: config.root, timeout: 20000 });
+    if (!enabled) await execFileAsync('pm2', ['delete', 'local-ai-telegram'], { cwd: config.root, timeout: 10000 }).catch(() => {});
     await execFileAsync('pm2', ['save'], { cwd: config.root, timeout: 10000 });
     setAdminNotice(req, res, 'success', enabled ? 'Настройки Telegram сохранены. Бот перезапущен.' : 'Telegram-бот отключён.');
   } catch (error) {
@@ -201,6 +202,8 @@ app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
   }
   res.redirect('/auth/#settings');
 });
+app.get('/telegram-app', (req, res) => res.sendFile(path.join(config.root, 'public', 'telegram-app.html')));
+
 app.get('/auth/model-catalog', requireAdmin, async (req, res) => {
   res.set('Cache-Control', 'private, max-age=300');
   try {
