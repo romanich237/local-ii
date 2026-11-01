@@ -805,3 +805,77 @@ select option {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+
+/* Utility-first admin styling: flat surfaces, restrained accent, no decorative glow. */
+body { background: var(--bg); }
+.topbar {
+  background: var(--surface-solid);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.brand-mark {
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  box-shadow: none;
+}
+.brand-mark::after { display: none; }
+.hero {
+  min-height: 0;
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: none;
+}
+.hero::before, .hero::after { display: none; }
+.endpoint {
+  border-color: var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.stat, .card {
+  border-color: var(--line);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.stat:hover { transform: none; box-shadow: none; }
+.stat::before, .stat::after { display: none; }
+.token-type, .usage-item, .key-form, .model-form {
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.token-type::after, .key-created::after { display: none; }
+.key-created {
+  border-color: var(--line-strong);
+  background: var(--surface-solid);
+}
+.key-created code {
+  border-style: solid;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.button { border-radius: 8px; box-shadow: none; }
+.button:hover { transform: none; }
+.button-primary { background: var(--accent); color: #171717; }
+.button-primary:hover { background: var(--accent-hover); color: #171717; }
+input, select { border-radius: 8px; box-shadow: none; }
+input:focus, select:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+.table-wrap { border-radius: 9px; }
+th { background: var(--surface-2); }
+tbody tr:hover { background: var(--accent-soft); }
+.status { border-radius: 5px; }
+.status-loading::before { animation: none; }
+.login-body { background: var(--bg); }
+.login-card {
+  border-color: var(--line);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: none;
+}
+.login-card::before { display: none; }
+.section-description { margin: -12px 0 18px; color: var(--muted); font-size: 13px; }
