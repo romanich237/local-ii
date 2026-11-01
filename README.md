@@ -75,6 +75,45 @@ sudo bash setup-github-access.sh
 
 Updater проверяет ветку с интервалом из `config.json` (по умолчанию 60 секунд). При новом commit выполняется fast-forward, `npm ci --omit=dev`, затем перезапускается API через PM2. Ручное управление:
 
+### Ручное обновление на сервере
+
+Если нужно установить последнюю версию немедленно, подключитесь к серверу и выполните команды от того же пользователя, под которым запущен PM2. В стандартной установке Local AI Server это root:
+
+```bash
+sudo -i
+cd /opt/local-ii
+git fetch --prune origin main
+git merge --ff-only origin/main
+npm ci --omit=dev
+pm2 reload local-ai-api --update-env
+pm2 restart local-ai-updater --update-env
+pm2 save
+```
+
+Команды получают изменения только из ветки `main`, устанавливают production-зависимости и перезапускают процессы приложения. База SQLite и локальный `config.json` не заменяются этой последовательностью.
+
+Для приватного репозитория перед ручным обновлением должен быть настроен Deploy Key:
+
+```bash
+cd /opt/local-ii
+sudo bash setup-github-access.sh
+```
+
+Добавьте показанный публичный ключ в **Repository → Settings → Deploy keys** без разрешения записи. После успешной настройки `origin` и SSH-команда Git сохраняются в локальной конфигурации репозитория, поэтому последующие `git fetch` выполняются без персонального PAT.
+
+Если `git merge --ff-only` сообщает о конфликте или локальных изменениях, не используйте `git reset --hard` и не удаляйте файлы. Сначала сохраните локальные изменения и выясните, почему рабочая копия разошлась с GitHub.
+
+Проверить результат:
+
+```bash
+git log -1 --oneline
+pm2 status
+curl -fsS http://127.0.0.1:3000/health
+```
+
+Последняя команда предполагает стандартный порт 3000; если в локальном `config.json` задан другой порт, подставьте его.
+
+
 ```bash
 pm2 status
 pm2 logs local-ai-updater
