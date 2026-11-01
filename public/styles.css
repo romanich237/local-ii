@@ -1198,3 +1198,21 @@ input, select, textarea { min-width: 0; }
 @media (max-width: 560px) {
   .media-model-actions > * { flex: 1 1 100%; justify-content: center; }
 }
+
+
+/* Responsive, predictable model tab navigation */
+#models .tabs { display: flex; align-items: center; gap: 5px; overflow-x: auto; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+#models .tabs .tab { flex: 0 0 auto; min-height: 42px; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+#models .tabs .tab:disabled { cursor: wait; opacity: .65; }
+#models [data-model-panel] { min-width: 0; }
+#models [data-model-panel][hidden] { display: none !important; }
+#models [data-model-panel]:not([hidden]) { display: block; animation: model-panel-in .12s ease-out; }
+#models [data-catalog-status] { min-height: 1.5em; }
+@keyframes model-panel-in { from { opacity: .75; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #models [data-model-panel]:not([hidden]) { animation: none; }
+}
+@media (max-width: 560px) {
+  #models .tabs { margin-inline: -2px; padding-bottom: 10px; }
+  #models .tabs .tab { padding-inline: 12px; font-size: 13px; }
+}
