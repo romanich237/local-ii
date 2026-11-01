@@ -3,6 +3,9 @@
 const express = require('express');
 const helmet = require('helmet');
 const path = require('node:path');
+const os = require('node:os');
+const fs = require('node:fs');
+const serviceVersion = require('../package.json').version;
 const { loadConfig } = require('./config');
 const { statements } = require('./db');
 const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey, verifyPassword, signSession, verifySession } = require('./security');
@@ -12,7 +15,7 @@ const config = loadConfig();
 const app = express();
 if (config.trustProxy) app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'none'"] } } }));
+app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'"], scriptSrc: ["'self'"] } } }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 app.use('/assets', express.static(path.join(config.root, 'public'), { fallthrough: false, maxAge: '1h' }));
 
@@ -160,6 +163,116 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
     statements.recordUsage.run(req.apiKey.id, model, promptTokens, completionTokens, totalTokens, Date.now() - started, statusCode);
     statements.touchKey.run(req.apiKey.id);
   }
+});
+
+
+app.get('/auth/server-status', requireAdmin, async (_req, res) => {
+  let ollama = false;
+  let installedModels = 0;
+  try {
+    const response = await fetch(config.ollamaUrl + '/api/tags', { signal: AbortSignal.timeout(2500) });
+    ollama = response.ok;
+    if (ollama) installedModels = (await response.json()).models?.length || 0;
+  } catch {}
+  let disk = null;
+  try {
+    const stats = fs.statfsSync(config.root);
+    disk = { total: stats.blocks * stats.bsize, free: stats.bavail * stats.bsize };
+  } catch {}
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    version: serviceVersion, hostname: os.hostname(), platform: os.type() + ' ' + os.release(),
+    arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
+    loadAverage: os.loadavg().map(value => Number(value.toFixed(2))),
+    memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem() },
+    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel
+  });
+});
+
+app.post('/auth/chat', requireAdmin, express.json({ limit: '64kb' }), async (req, res) => {
+  const model = String(req.body.model || config.defaultModel).trim();
+  const systemPrompt = String(req.body.systemPrompt || '').slice(0, 12000);
+  const maxTokens = Math.max(1, Math.min(32768, Number.parseInt(req.body.maxTokens, 10) || 1024));
+  const messages = Array.isArray(req.body.messages) ? req.body.messages.slice(-40) : [];
+  if (!modelNamePattern.test(model)) return res.status(400).json({ error: 'Некорректный тег модели' });
+  if (!messages.length || messages.some(item => !['user', 'assistant'].includes(item.role) || typeof item.content !== 'string' || item.content.length > 20000)) {
+    return res.status(400).json({ error: 'Передана некорректная история чата' });
+  }
+  const startedAt = Date.now();
+  try {
+    const upstream = await fetch(config.ollamaUrl + '/v1/chat/completions', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []), ...messages],
+        max_tokens: maxTokens, stream: false
+      }),
+      signal: AbortSignal.timeout(30 * 60 * 1000)
+    });
+    const payload = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) return res.status(502).json({ error: payload.error?.message || payload.error || 'Ollama вернула код ' + upstream.status });
+    const answer = payload.choices?.[0]?.message?.content;
+    if (typeof answer !== 'string') return res.status(502).json({ error: 'Модель вернула пустой ответ' });
+    const promptTokens = Number(payload.usage?.prompt_tokens ?? estimateTokens(messages));
+    const completionTokens = Number(payload.usage?.completion_tokens ?? estimateTokens(answer));
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      answer, model,
+      usage: { promptTokens, completionTokens, totalTokens: Number(payload.usage?.total_tokens ?? promptTokens + completionTokens) },
+      elapsedSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(2))
+    });
+  } catch (error) {
+    res.status(502).json({ error: 'Не удалось получить ответ модели: ' + error.message });
+  }
+});
+
+app.post('/auth/chat/python', requireAdmin, (req, res) => {
+  const model = String(req.body.model || config.defaultModel).trim();
+  const systemPrompt = String(req.body.systemPrompt || '').slice(0, 12000);
+  const maxTokens = Math.max(1, Math.min(32768, Number.parseInt(req.body.maxTokens, 10) || 1024));
+  if (!modelNamePattern.test(model)) return res.status(400).send('Некорректный тег модели');
+  const script = [
+    '#!/usr/bin/env python3',
+    '"""Local AI Server client. Python 3.9+, standard library only."""',
+    'import getpass, json, time, urllib.request, urllib.error',
+    'BASE_URL = ' + JSON.stringify(config.baseUrl),
+    'MODEL = ' + JSON.stringify(model),
+    'SYSTEM_PROMPT = ' + JSON.stringify(systemPrompt),
+    'MAX_TOKENS = ' + maxTokens,
+    'def main():',
+    '    api_key = getpass.getpass("API key: ").strip()',
+    '    if not api_key: return',
+    '    history = ([{"role": "system", "content": SYSTEM_PROMPT}] if SYSTEM_PROMPT else [])',
+    '    print("Connected:", BASE_URL, "| model:", MODEL, "| max tokens:", MAX_TOKENS)',
+    '    print("Type /exit to quit, /clear to clear history.")',
+    '    while True:',
+    '        prompt = input("\\nYou: ").strip()',
+    '        if prompt == "/exit": break',
+    '        if prompt == "/clear":',
+    '            history = ([{"role": "system", "content": SYSTEM_PROMPT}] if SYSTEM_PROMPT else [])',
+    '            print("History cleared."); continue',
+    '        if not prompt: continue',
+    '        history.append({"role": "user", "content": prompt})',
+    '        body = json.dumps({"model": MODEL, "messages": history, "max_tokens": MAX_TOKENS}).encode()',
+    '        request = urllib.request.Request(BASE_URL + "/chat/completions", data=body, headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"})',
+    '        started = time.perf_counter()',
+    '        try:',
+    '            with urllib.request.urlopen(request, timeout=1800) as response: data = json.loads(response.read().decode())',
+    '            elapsed = time.perf_counter() - started',
+    '            answer = data["choices"][0]["message"]["content"]; usage = data.get("usage", {})',
+    '            history.append({"role": "assistant", "content": answer})',
+    '            print("\\nAssistant: " + answer)',
+    '            print("Tokens:", usage.get("total_tokens", "n/a"), "| prompt:", usage.get("prompt_tokens", "n/a"), "| completion:", usage.get("completion_tokens", "n/a"), "| time: %.2fs\\n" % elapsed)',
+    '        except urllib.error.HTTPError as error:',
+    '            print("HTTP error:", error.code, error.read().decode(errors="replace")); history.pop()',
+    '        except Exception as error: print("Request failed:", error); history.pop()',
+    'if __name__ == "__main__": main()',
+    ''
+  ].join('\\n');
+  res.setHeader('Content-Type', 'text/x-python; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="local-ii-client.py"');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(script);
 });
 
 app.get('/auth/login', (req, res) => isAdmin(req) ? res.redirect('/auth/') : res.send(loginPage({ theme: selectedTheme(req) })));
