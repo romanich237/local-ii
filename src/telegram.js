@@ -26,6 +26,14 @@ async function telegramCall(method, payload = {}) {
   if (!response.ok || !data.ok) throw new Error(data.description || 'Telegram API error');
   return data.result;
 }
+async function sendHome() {
+  const webAppUrl = 'https://' + config.domain + '/telegram-app';
+  return telegramCall('sendMessage', {
+    chat_id: adminChatId,
+    text: help(),
+    reply_markup: { keyboard: [[{ text: 'Открыть панель управления', web_app: { url: webAppUrl } }]], resize_keyboard: true, is_persistent: true }
+  });
+}
 async function send(text) {
   const safeText = String(text).slice(0, 3900);
   return telegramCall('sendMessage', { chat_id: adminChatId, text: safeText, disable_web_page_preview: true });
@@ -54,7 +62,10 @@ function help() {
     '/system текст — задать системный промт',
     '/max число — максимум выходных токенов',
     '/status — состояние Ollama и модели',
-    '/news — открыть официальный канал новостей'
+    '/news — открыть официальный канал новостей',
+    '/models — список установленных моделей',
+    '/stats — статистика API за месяц',
+    '/panel — открыть Mini App'
   ].join('\n');
 }
 async function showKeys() {
@@ -117,8 +128,21 @@ async function handleMessage(message) {
   const args = command?.[2] || '';
   const session = state();
 
-  if (name === 'start' || name === 'help') return send(help());
+  if (name === 'start') return sendHome();
+  if (name === 'help') return send(help());
   if (name === 'keys') return showKeys();
+  if (name === 'panel') return sendHome();
+  if (name === 'models') {
+    try {
+      const response = await fetch(config.ollamaUrl + '/api/tags', { signal: AbortSignal.timeout(5000) });
+      const result = await response.json();
+      return send('Установленные модели:\\n' + (result.models || []).map(item => '• ' + item.name).join('\\n') || 'Нет установленных моделей');
+    } catch (error) { return send('Не удалось получить модели: ' + error.message); }
+  }
+  if (name === 'stats') {
+    const stats = statements.tokenStats.get();
+    return send('Статистика за месяц\\nЗапросы: ' + Number(stats.month_requests).toLocaleString('ru-RU') + '\\nТокены: ' + Number(stats.month_tokens).toLocaleString('ru-RU') + '\\nAPI-ключей: ' + statements.listKeys.all().length);
+  }
   if (name === 'news') return send('Новости Local AI Server: https://t.me/localiirom');
   if (name === 'newkey') return createKeyFromCommand(args);
   if (name === 'reveal') {
