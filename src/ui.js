@@ -76,6 +76,21 @@ function dashboard({ keys = [], tokenStats = {}, recent = [], baseUrl, newKey, t
     NEW_KEY: newKey ? '<section class="card key-created"><h2>Новый API-ключ</h2><p>Сохраните его в менеджере паролей. Значение также можно посмотреть в списке ключей.</p><code>' + escapeHtml(newKey) + '</code></section>' : ''
   });
 }
+const mediaModelCatalog = [
+  { group: 'Генерация изображений', name: 'Qwen-Image-2.1', tag: 'Qwen/Qwen-Image-2.1', mode: 'Локально · Diffusers / ComfyUI', note: 'Открытые веса. Генерация изображений, редактирование, прозрачный RGBA и до 10 референсов.', link: 'https://github.com/QwenLM/Qwen-Image-2.1', recommended: true },
+  { group: 'Генерация изображений', name: 'Qwen-Image-2.1 Pro', tag: 'qwen-image-2.1-pro', mode: 'Облачный API · QwenCloud', note: 'Генерация и редактирование через API, поддержка прозрачного фона и референсных изображений.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/image-models', recommended: true },
+  { group: 'Генерация изображений', name: 'Qwen-Image-2.1 Turbo', tag: 'qwen-image-2.1-turbo', mode: 'Облачный API · QwenCloud', note: 'Ускоренная генерация и редактирование; Turbo использует 8 шагов денойзинга.', link: 'https://github.com/QwenLM/Qwen-Image-2.1' },
+  { group: 'Генерация изображений', name: 'Qwen-Image-3.0 Pro', tag: 'qwen-image-3.0-pro', mode: 'Облачный API · QwenCloud', note: 'Сложные композиции, макеты и точная отрисовка текста; вывод до 2K.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/image-models' },
+  { group: 'Генерация изображений', name: 'Qwen-Image-3.0', tag: 'qwen-image-3.0', mode: 'Облачный API · QwenCloud', note: 'Универсальная генерация и редактирование изображений с балансом скорости и качества.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/image-models' },
+  { group: 'Генерация видео', name: 'Wan 2.7 Text-to-Video', tag: 'wan2.7-t2v', mode: 'Облачный API · QwenCloud', note: 'Создание видео по тексту, синхронизация аудио и многосценовые ролики; 720p/1080p, 2–15 секунд.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models', recommended: true },
+  { group: 'Генерация видео', name: 'Wan 2.7 Image-to-Video', tag: 'wan2.7-i2v', mode: 'Облачный API · QwenCloud', note: 'Анимация исходного изображения, первый и последний кадр, продолжение видео; 720p/1080p.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models', recommended: true },
+  { group: 'Генерация видео', name: 'Wan 2.7 Reference-to-Video', tag: 'wan2.7-r2v-2026-06-12', mode: 'Облачный API · QwenCloud', note: 'Видео с использованием нескольких персонажей и визуальных референсов.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models' },
+  { group: 'Генерация видео', name: 'Wan 2.7 Video Edit', tag: 'wan2.7-videoedit', mode: 'Облачный API · QwenCloud', note: 'Редактирование видео по текстовым инструкциям и перенос визуальных эффектов.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models' },
+  { group: 'Генерация видео', name: 'Wan 3.0 Video', tag: 'wan3.0-video', mode: 'Облачный API · доступ по приглашению', note: 'Единая модель text-to-video, image-to-video и генерации по референсам; до 30 секунд, 1080p.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models' },
+  { group: 'Генерация видео', name: 'HappyHorse 1.1 Text-to-Video', tag: 'happyhorse-1.1-t2v', mode: 'Облачный API · QwenCloud', note: 'Видео по текстовому описанию со звуком; 720p/1080p, 3–15 секунд.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models' },
+  { group: 'Генерация видео', name: 'HappyHorse 1.1 Image-to-Video', tag: 'happyhorse-1.1-i2v', mode: 'Облачный API · QwenCloud', note: 'Оживление изображения с генерацией движения и звука; 720p/1080p, 3–15 секунд.', link: 'https://docs.qwencloud.com/developer-guides/getting-started/video-models' }
+];
+
 function modelsPage({ models = [], model, modelJobs = [], modelError = '', notice = null, theme = 'dark' }) {
   const formatBytes = value => {
     const bytes = Number(value || 0);
@@ -92,12 +107,14 @@ function modelsPage({ models = [], model, modelJobs = [], modelError = '', notic
   }).join('') || '<tr><td colspan="5" class="empty">Установленных моделей пока нет</td></tr>';
   const modelJobRows = modelJobs.map(job => '<div class="model-job"><div><strong class="mono">' + escapeHtml(job.model) + '</strong><span>' + escapeHtml(job.message) + '</span></div><span class="status ' + (job.status === 'success' ? 'status-ok' : job.status === 'error' ? 'status-off' : 'status-loading') + '">' + (job.status === 'success' ? 'Готово' : job.status === 'error' ? 'Ошибка' : 'Загрузка') + '</span></div>').join('');
   const noticeHtml = notice?.message ? '<div class="alert alert-' + (['success', 'warning'].includes(notice.type) ? notice.type : 'error') + '">' + escapeHtml(notice.message) + '</div>' : modelError ? '<div class="alert alert-error">' + escapeHtml(modelError) + '</div>' : '';
+  const mediaCatalogCards = mediaModelCatalog.map(item => '<article class="catalog-item media-model-item"><div class="catalog-item-head"><span class="catalog-group">' + escapeHtml(item.group) + '</span>' + (item.recommended ? '<span class="status status-ok">Рекомендуем</span>' : '') + '</div><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.note) + '</p><div class="catalog-meta"><code>' + escapeHtml(item.tag) + '</code><span>' + escapeHtml(item.mode) + '</span></div><div class="media-model-actions"><button class="button button-secondary" type="button" data-copy-model="' + escapeHtml(item.tag) + '">Копировать ID</button><a class="button button-secondary" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">Документация</a></div></article>').join('');
   const catalogCards = modelCatalog.map(item => '<article class="catalog-item"><div class="catalog-item-head"><span class="catalog-group">' + escapeHtml(item.group) + '</span>' + (item.recommended ? '<span class="status status-ok">Рекомендация</span>' : '') + '</div><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.note) + '</p><div class="catalog-meta"><code>' + escapeHtml(item.tag) + '</code><span>' + escapeHtml(item.ram) + '</span></div><form method="post" action="/auth/models/pull"><input type="hidden" name="modelPreset" value="' + escapeHtml(item.tag) + '"><button class="button button-secondary" type="submit">Установить</button></form></article>').join('');
   return render('models', {
     ...themeData(theme, '/auth/models'),
     MODEL_COUNT: models.length,
     MODEL_NOTICE: noticeHtml,
     MODEL_CATALOG: catalogCards,
+    MEDIA_MODEL_CATALOG: mediaCatalogCards,
     MODEL_JOBS: modelJobRows ? '<div class="model-jobs"><h3>Последние загрузки</h3>' + modelJobRows + '</div>' : '',
     MODEL_ROWS: modelRows
   });
