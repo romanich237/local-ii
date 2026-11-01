@@ -22,13 +22,13 @@
   </section>
     <section class="card" id="models">
     <div class="section-head"><div><p class="eyebrow">Ollama</p><h2>Модели</h2></div><span class="meta-pill"><strong>{{MODEL_COUNT}}</strong> установлено</span></div>
-    {{{{MODEL_NOTICE}}}}
+    {{MODEL_NOTICE}}
     <div class="tabs" role="tablist" aria-label="Каталог моделей">
       <button class="tab is-active" type="button" role="tab" aria-selected="true" data-model-tab="recommended">Рекомендации</button>
       <button class="tab" type="button" role="tab" aria-selected="false" data-model-tab="installed">Установленные</button>
     </div>
     <div data-model-panel="recommended">
-      <div class="model-catalog">{{{{MODEL_CATALOG}}}}</div>
+      <div class="model-catalog">{{MODEL_CATALOG}}</div>
       <p class="hint">Требования к памяти ориентировочные. Перед загрузкой сверяйте актуальные теги и размер модели в каталоге Ollama.</p>
     </div>
     <div data-model-panel="installed" hidden>
@@ -36,8 +36,8 @@
         <label>Точный тег модели<input name="customModel" maxlength="160" placeholder="Например, qwen3:8b"></label>
         <button class="button button-primary" type="submit">Скачать модель</button>
       </form>
-      {{{{MODEL_JOBS}}}}
-      <div class="table-wrap"><table><thead><tr><th>Модель</th><th>Размер</th><th>Параметры</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{{{{MODEL_ROWS}}}}</tbody></table></div>
+      {{MODEL_JOBS}}
+      <div class="table-wrap"><table><thead><tr><th>Модель</th><th>Размер</th><th>Параметры</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{{MODEL_ROWS}}</tbody></table></div>
     </div>
   </section>
 
