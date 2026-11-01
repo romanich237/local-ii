@@ -1154,3 +1154,16 @@ input, select, textarea { min-width: 0; }
 .miniapp-diagnostic { margin: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .miniapp-auth [data-miniapp-retry] { justify-self: start; min-height: 40px; }
 .telegram-app-page { overflow-x: hidden; }
+
+
+/* Telegram Mini App fallback authentication */
+.miniapp-login { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.miniapp-login[hidden] { display: none !important; }
+.miniapp-login-heading { display: grid; gap: 5px; }
+.miniapp-login-heading strong { font-size: 14px; }
+.miniapp-login-heading span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.miniapp-login label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.miniapp-login input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.miniapp-login input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.miniapp-login-error { margin: 0; color: var(--danger); font-size: 12px; line-height: 1.5; }
+.miniapp-login [disabled] { opacity: .65; cursor: wait; }
