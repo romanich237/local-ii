@@ -1167,3 +1167,7 @@ input, select, textarea { min-width: 0; }
 .miniapp-login input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .miniapp-login-error { margin: 0; color: var(--danger); font-size: 12px; line-height: 1.5; }
 .miniapp-login [disabled] { opacity: .65; cursor: wait; }
+
+
+/* Latest channel broadcast */
+.channel-broadcast-message { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
