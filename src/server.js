@@ -58,6 +58,14 @@ async function listInstalledModels() {
   return Array.isArray(result.models) ? result.models : [];
 }
 
+function isMediaGenerationModel(model) {
+  const value = String(model || '').toLowerCase();
+  return value.startsWith('qwen/qwen-image')
+    || value.startsWith('qwen-image-')
+    || value.startsWith('wan')
+    || value.startsWith('happyhorse');
+}
+
 function startModelPull(model) {
   const job = { model, status: 'loading', message: 'Модель скачивается', startedAt: new Date().toISOString() };
   modelJobs.set(model, job);
@@ -73,7 +81,10 @@ function startModelPull(model) {
       if (!upstream.ok || result.error) throw new Error(result.error || `Ollama вернула код ${upstream.status}`);
       Object.assign(job, { status: 'success', message: 'Модель скачана', finishedAt: new Date().toISOString() });
     } catch (error) {
-      Object.assign(job, { status: 'error', message: error.message, finishedAt: new Date().toISOString() });
+      const message = isMediaGenerationModel(model)
+        ? 'Это модель генерации изображений/видео, а не модель Ollama. Установить её через /api/pull нельзя. Используйте Diffusers или ComfyUI либо API соответствующего провайдера.'
+        : error.message;
+      Object.assign(job, { status: 'error', message, finishedAt: new Date().toISOString() });
     }
   })();
 }
@@ -553,6 +564,10 @@ app.get('/auth/', requireAdmin, async (req, res) => {
 app.post('/auth/models/pull', requireAdmin, (req, res) => {
   const customModel = String(req.body.customModel || '').trim();
   const model = customModel || String(req.body.modelPreset || '').trim();
+  if (isMediaGenerationModel(model)) {
+    setAdminNotice(req, res, 'warning', 'Qwen-Image, Wan и HappyHorse не устанавливаются через Ollama. Для локального запуска используйте Diffusers/ComfyUI, для облачного — API провайдера.');
+    return res.redirect('/auth/models');
+  }
   if (!model || model.length > 160 || !modelNamePattern.test(model)) {
     setAdminNotice(req, res, 'error', 'Укажите корректное имя модели, например qwen3:4b');
     return res.redirect('/auth/models');
