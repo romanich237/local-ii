@@ -1114,3 +1114,34 @@ input, select, textarea { min-width: 0; }
 [data-catalog-search] { max-width: 100%; }
 .checkbox-label { display: flex; align-items: center; gap: 9px; }
 .checkbox-label input { width: auto; }
+
+
+/* Telegram Mini App */
+.telegram-app-page { min-height: 100vh; padding: 22px 16px calc(28px + env(safe-area-inset-bottom)); }
+.telegram-app-page [hidden] { display: none !important; }
+.miniapp { width: 100%; max-width: 720px; margin: 0 auto; }
+.miniapp-head { margin: 8px 0 22px; }
+.miniapp-head h1 { margin: 0 0 10px; font-size: clamp(28px, 7vw, 40px); line-height: 1.12; }
+.miniapp-head .lead { margin: 0; }
+.miniapp-auth { margin-bottom: 14px; }
+.miniapp-status-title { margin: 0 0 8px; font-weight: 650; }
+.miniapp-auth-error { border-color: var(--danger); }
+.miniapp-profile { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.miniapp-profile h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.miniapp-profile .eyebrow { margin: 0 0 6px; }
+.miniapp-user-id { display: grid; gap: 4px; text-align: right; }
+.miniapp-user-id span { color: var(--muted); font-size: 11px; }
+.miniapp-user-id strong { font-variant-numeric: tabular-nums; font-size: 14px; }
+.miniapp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.miniapp-link { display: flex; min-height: 112px; min-width: 0; flex-direction: column; justify-content: space-between; gap: 12px; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); text-decoration: none; }
+.miniapp-link strong { display: block; font-size: 15px; line-height: 1.35; }
+.miniapp-link span { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.miniapp-link:active { background: var(--surface-2); }
+.miniapp-footnote { margin-top: 18px; }
+@media (max-width: 420px) {
+  .telegram-app-page { padding-left: 12px; padding-right: 12px; }
+  .miniapp-grid { grid-template-columns: 1fr; gap: 9px; }
+  .miniapp-link { min-height: 84px; }
+  .miniapp-profile { align-items: flex-start; flex-direction: column; }
+  .miniapp-user-id { text-align: left; }
+}
