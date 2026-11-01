@@ -119,6 +119,49 @@
     if (event.target.matches('.key-rotate-form') && !window.confirm('Старый ключ будет заменён новым. Продолжить?')) event.preventDefault();
   });
 
+  const catalogPanel = $('[data-full-catalog]');
+  const catalogSearch = $('[data-catalog-search]');
+  const catalogStatus = $('[data-catalog-status]');
+  let fullCatalog = [];
+  function renderCatalog() {
+    if (!catalogPanel) return;
+    const query = (catalogSearch?.value || '').trim().toLowerCase();
+    const visible = fullCatalog.filter(item => item.name.toLowerCase().includes(query));
+    catalogPanel.replaceChildren();
+    for (const item of visible) {
+      const card = document.createElement('article');
+      card.className = 'catalog-item';
+      const title = document.createElement('h3'); title.textContent = item.name;
+      const description = document.createElement('p'); description.textContent = 'Официальная модель Ollama';
+      const meta = document.createElement('div'); meta.className = 'catalog-meta';
+      const tag = document.createElement('code'); tag.textContent = item.tag;
+      const link = document.createElement('a'); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Страница модели';
+      meta.append(tag, link);
+      const form = document.createElement('form'); form.method = 'post'; form.action = '/auth/models/pull';
+      const input = document.createElement('input'); input.type = 'hidden'; input.name = 'modelPreset'; input.value = item.tag;
+      const button = document.createElement('button'); button.type = 'submit'; button.className = 'button button-secondary'; button.textContent = 'Установить';
+      form.append(input, button); card.append(title, description, meta, form); catalogPanel.append(card);
+    }
+    if (!visible.length) catalogPanel.textContent = 'Модели не найдены.';
+  }
+  async function loadFullCatalog() {
+    if (!catalogPanel || !catalogStatus) return;
+    catalogStatus.textContent = 'Загружаем список с ollama.com…';
+    try {
+      const response = await fetch('/auth/model-catalog', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Ошибка каталога');
+      fullCatalog = Array.isArray(data.models) ? data.models : [];
+      catalogStatus.textContent = 'Найдено моделей: ' + fullCatalog.length + '. Источник: ollama.com/library.';
+      renderCatalog();
+    } catch (error) { catalogStatus.textContent = error.message; }
+  }
+  if (catalogPanel) {
+    loadFullCatalog();
+    catalogSearch?.addEventListener('input', renderCatalog);
+    $('[data-catalog-refresh]')?.addEventListener('click', loadFullCatalog);
+  }
+
   const chatForm = $('[data-chat-form]');
   const settings = $('[data-chat-settings]');
   const transcript = $('[data-chat-transcript]');
