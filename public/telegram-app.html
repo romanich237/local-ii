@@ -18,7 +18,9 @@
   </header>
   <section class="miniapp-auth card" data-miniapp-status aria-live="polite">
     <p class="miniapp-status-title">Проверка Telegram</p>
-    <p class="hint" data-miniapp-message>Получаем подтверждённые данные аккаунта…</p>
+    <p class="hint" data-miniapp-message>Подключаем Telegram и проверяем данные запуска…</p>
+    <p class="miniapp-diagnostic" data-miniapp-diagnostic hidden></p>
+    <button class="button button-secondary" type="button" data-miniapp-retry hidden>Повторить проверку</button>
   </section>
   <section class="miniapp-profile card" data-miniapp-profile hidden>
     <div><p class="eyebrow">Вы вошли как администратор</p><h2 data-miniapp-name>—</h2></div>
@@ -32,7 +34,7 @@
     <a class="miniapp-link" href="/auth/news"><strong>Новости</strong><span>Последние публикации проекта</span></a>
     <a class="miniapp-link" href="https://cyxap.top/tg" target="_blank" rel="noopener noreferrer"><strong>Поддержка</strong><span>Помощь по Local AI Server</span></a>
   </section>
-  <p class="hint miniapp-footnote">Доступ предоставляется только Telegram ID, указанному в настройках сервера.</p>
+  <p class="hint miniapp-footnote">Доступ предоставляется только подтверждённому Telegram ID администратора.</p>
 </main>
 </body>
 </html>
