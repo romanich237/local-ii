@@ -6,13 +6,14 @@ const { createApiKey, hashApiKey, encryptApiKey, decryptApiKey } = require('./se
 
 const config = loadConfig();
 const telegram = config.telegram || {};
-if (!telegram.enabled || !telegram.botToken || !telegram.adminChatId) {
-  console.log('[telegram] Управление через Telegram отключено в config.json');
-  setInterval(() => {}, 60 * 60 * 1000);
+const adminUserId = String(telegram.adminUserId || telegram.adminChatId || '');
+if (!telegram.enabled || !telegram.botToken || !adminUserId) {
+  console.log('[telegram] Бот отключён. Процесс завершён.');
+  process.exit(0);
 }
 
 const api = 'https://api.telegram.org/bot' + telegram.botToken;
-const adminChatId = String(telegram.adminChatId);
+const adminChatId = adminUserId;
 const chats = new Map();
 let offset = 0;
 
@@ -108,7 +109,7 @@ async function chatWithModel(text, session) {
   }
 }
 async function handleMessage(message) {
-  if (!message?.text || message.chat?.type !== 'private' || String(message.chat.id) !== adminChatId || String(message.from?.id) !== adminChatId) return;
+  if (!message?.text || message.chat?.type !== 'private' || String(message.from?.id) !== adminUserId) return;
   const text = message.text.trim();
   const command = text.match(/^\/([a-z_]+)(?:@\w+)?(?:\s+([\s\S]*))?$/i);
   const name = command?.[1]?.toLowerCase();
@@ -186,7 +187,7 @@ async function poll() {
   }
 }
 telegramCall('getMe').then(bot => {
-  console.log('[telegram] Бот @' + bot.username + ' запущен. Разрешённый администратор: ' + adminChatId);
+  console.log('[telegram] Бот @' + bot.username + ' запущен. Разрешённый администратор: ' + adminUserId);
   return poll();
 }).catch(error => {
   console.error('[telegram] Не удалось запустить бота:', error.message);
