@@ -176,7 +176,7 @@ app.post('/v1/chat/completions', express.json({ limit: '2mb' }), authorizeApi, a
 
 function saveConfig(next) {
   const temp = config.configPath + '.tmp';
-  fs.writeFileSync(temp, JSON.stringify(next, null, 2) + '\\n', { mode: 0o600 });
+  fs.writeFileSync(temp, JSON.stringify(next, null, 2) + '\n', { mode: 0o600 });
   fs.chmodSync(temp, 0o600);
   fs.renameSync(temp, config.configPath);
 }
@@ -184,11 +184,13 @@ app.post('/auth/settings/telegram', requireAdmin, async (req, res) => {
   const botToken = String(req.body.botToken || '').trim();
   const adminUserId = String(req.body.adminUserId || '').trim();
   const enabled = req.body.enabled === 'on';
-  if (enabled && (!/^\\d{5,15}$/.test(adminUserId) || !/^\\d{6,}:[A-Za-z0-9_-]{20,}$/.test(botToken))) {
+  if (enabled && (!/^\d{5,15}$/.test(adminUserId) || !/^\d{6,}:[A-Za-z0-9_-]{20,}$/.test(botToken))) {
     setAdminNotice(req, res, 'error', 'Проверьте токен бота и числовой Telegram ID.');
     return res.redirect('/auth/#settings');
   }
-  const next = { ...JSON.parse(fs.readFileSync(config.configPath, 'utf8')), telegram: { ...(config.telegram || {}), enabled, botToken: enabled ? botToken : '', adminUserId: enabled ? adminUserId : '' } };
+  const current = JSON.parse(fs.readFileSync(config.configPath, 'utf8'));
+  const next = { ...current, telegram: { ...(current.telegram || {}), enabled, botToken: enabled ? (botToken || current.telegram?.botToken || '') : '', adminUserId: enabled ? adminUserId : '' } };
+  if (enabled && !next.telegram.botToken) { setAdminNotice(req, res, 'error', 'Укажите токен Telegram-бота.'); return res.redirect('/auth/#settings'); }
   saveConfig(next);
   try {
     await execFileAsync('pm2', ['startOrReload', 'ecosystem.config.cjs', '--update-env'], { cwd: config.root, timeout: 20000 });
@@ -205,7 +207,7 @@ app.get('/auth/model-catalog', requireAdmin, async (req, res) => {
     const response = await fetch('https://ollama.com/library', { headers: { 'user-agent': 'Mozilla/5.0 LocalAI-Server' }, signal: AbortSignal.timeout(12000) });
     if (!response.ok) throw new Error('Ollama HTTP ' + response.status);
     const html = await response.text();
-    const names = [...new Set([...html.matchAll(/href=["']\\/library\\/([a-zA-Z0-9._-]+)["']/g)].map(match => match[1]).filter(name => !['library'].includes(name)))];
+    const names = [...new Set([...html.matchAll(/href=["']\/library\/([a-zA-Z0-9._-]+)["']/g)].map(match => match[1]).filter(name => !['library'].includes(name)))];
     if (!names.length) throw new Error('Каталог Ollama не распознан');
     res.json({ source: 'https://ollama.com/library', updatedAt: new Date().toISOString(), models: names.map(name => ({ name, tag: name, url: 'https://ollama.com/library/' + encodeURIComponent(name) })) });
   } catch (error) {
