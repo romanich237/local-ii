@@ -1,90 +1,49 @@
 <!doctype html>
 <html lang="ru" data-theme="{{THEME}}">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <meta name="theme-color" content="#ff7a00">
-  <title>Документация | Local AI Server</title>
-  <link rel="stylesheet" href="/assets/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Документация | Local AI Server</title>
+<link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/">
-      <span class="brand-mark brand-mark-small">AI</span>
-      <span class="brand-copy"><span class="brand-title">Local AI Server</span><span class="brand-subtitle">API reference</span></span>
-    </a>
-    <nav class="nav-links" aria-label="Главное меню">
-      <a href="/auth/">Админ-панель</a>
-      <a href="{{THEME_URL}}">{{THEME_LABEL}}</a>
-    </nav>
-  </header>
-  <main class="container docs-container">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Документация API</p>
-        <h1>Подключение без лишней сложности</h1>
-        <p class="lead">OpenAI-совместимый формат позволяет быстро подключить локальную модель к приложению.</p>
-      </div>
-      <div class="endpoint"><span>Базовый адрес</span><code>{{BASE_URL}}</code></div>
-    </section>
-
-    <section class="card docs-card">
-      <p class="eyebrow">Быстрый старт</p>
-      <h2>Параметры подключения</h2>
-      <dl class="details">
-        <div><dt>Base URL</dt><dd><code>{{BASE_URL}}</code></dd></div>
-        <div><dt>Модель</dt><dd><code>{{MODEL}}</code></dd></div>
-        <div><dt>Авторизация</dt><dd><code>Bearer ВАШ_API_КЛЮЧ</code></dd></div>
-      </dl>
-      <p>Создайте ключ в <a href="/auth/">админ-панели</a> и передавайте его в заголовке Authorization.</p>
-    </section>
-
-
-    <section class="card docs-card">
-      <p class="eyebrow">Cursor</p>
-      <h2>Подключение в Cursor</h2>
-      <p>Откройте <strong>Cursor Settings → Models</strong>, добавьте API-ключ, включите <strong>Use API Key</strong> и <strong>Base URL Override</strong>.</p>
-      <dl class="details">
-        <div><dt>Base URL</dt><dd><code>{{BASE_URL}}</code></dd></div>
-        <div><dt>Модель</dt><dd><code>{{MODEL}}</code></dd></div>
-      </dl>
-      <p>Для Agent и вызова инструментов используйте модель с поддержкой tool calling.</p>
-    </section>
-
-    <section class="card docs-card">
-      <p class="eyebrow">OpenCode</p>
-      <h2>Конфигурация OpenCode</h2>
-      <p>Выполните <code>/connect</code>, выберите <code>Other</code>, укажите ID <code>local-ii</code> и вставьте API-ключ.</p>
-      <pre><code>{
+<header class="topbar">
+<a class="brand" href="/"><span class="brand-mark brand-mark-small">AI</span><span class="brand-copy"><span class="brand-title">Local AI Server</span><span class="brand-subtitle">Документация</span></span></a>
+<nav class="nav-links"><a href="/auth/">Админ-панель</a><a href="{{THEME_URL}}">{{THEME_LABEL}}</a></nav>
+</header>
+<main class="container docs-container">
+<section class="hero"><div class="hero-copy"><p class="eyebrow">Руководство пользователя</p><h1>Документация API</h1><p class="lead">Локальные модели Ollama через OpenAI-совместимый интерфейс.</p></div><div class="endpoint"><span>Base URL</span><code>{{BASE_URL}}</code></div></section>
+<section class="card docs-card">
+<p class="eyebrow">Быстрый старт</p><h2>Параметры подключения</h2>
+<ol><li>Войдите в панель администратора.</li><li>Создайте API-ключ и сохраните его.</li><li>Укажите Base URL и установленную модель в клиенте.</li></ol>
+<dl class="details"><div><dt>Base URL</dt><dd><code>{{BASE_URL}}</code></dd></div><div><dt>Модель по умолчанию</dt><dd><code>{{MODEL}}</code></dd></div><div><dt>Авторизация</dt><dd><code>Authorization: Bearer ВАШ_API_КЛЮЧ</code></dd></div></dl>
+</section>
+<section class="card docs-card"><p class="eyebrow">API reference</p><h2>Маршруты</h2>
+<div class="route"><code>GET /health</code><span>Проверка API и Ollama, без ключа.</span></div>
+<div class="route"><code>GET /v1</code><span>Информация о совместимом API.</span></div>
+<div class="route"><code>GET /v1/models</code><span>Список установленных моделей, Bearer-ключ.</span></div>
+<div class="route"><code>POST /v1/chat/completions</code><span>Генерация ответа, Bearer-ключ.</span></div>
+</section>
+<section class="card docs-card"><p class="eyebrow">cURL</p><h2>Пример запроса</h2><pre><code>{{CURL}}</code></pre><p>Если поле model не передано, сервер использует модель по умолчанию. Параметр stream включает потоковую передачу ответа.</p></section>
+<section class="card docs-card"><p class="eyebrow">Cursor</p><h2>Подключение Cursor</h2><ol><li>Откройте Cursor Settings → Models.</li><li>Добавьте API-ключ и включите Use API Key.</li><li>Включите Base URL Override.</li><li>Укажите <code>{{BASE_URL}}</code>.</li><li>Добавьте точный ID модели из <code>GET /v1/models</code>.</li></ol><p>Для Agent выбирайте модель с поддержкой tool calling.</p></section>
+<section class="card docs-card"><p class="eyebrow">OpenCode</p><h2>Подключение OpenCode</h2><p>Выполните <code>/connect</code>, выберите <code>Other</code>, задайте ID провайдера <code>local-ii</code> и вставьте API-ключ.</p><pre><code>{
   "$schema": "https://opencode.ai/config.json",
   "provider": {
     "local-ii": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Local AI Server",
-      "options": { "baseURL": "{{BASE_URL}}" },
-      "models": {
-        "{{MODEL}}": { "name": "{{MODEL}}" }
-      }
+      "options": {"baseURL": "{{BASE_URL}}"},
+      "models": {"{{MODEL}}": {"name": "{{MODEL}}"}}
     }
   },
   "model": "local-ii/{{MODEL}}"
-}</code></pre>
-    </section>
-
-    <section class="card docs-card">
-      <p class="eyebrow">cURL</p>
-      <h2>Пример запроса</h2>
-      <pre><code>{{CURL}}</code></pre>
-    </section>
-
-    <section class="card docs-card">
-      <p class="eyebrow">Справочник</p>
-      <h2>Доступные маршруты</h2>
-      <div class="route"><code>POST /v1/chat/completions</code><span>Генерация ответа модели</span></div>
-      <div class="route"><code>GET /v1/models</code><span>Список установленных моделей</span></div>
-      <div class="route"><code>GET /health</code><span>Проверка API-сервера и Ollama</span></div>
-    </section>
-  </main>
+}</code></pre></section>
+<section class="card docs-card"><p class="eyebrow">Диагностика</p><h2>Типовые ошибки</h2><ul><li><strong>401:</strong> проверьте ключ и его статус в панели.</li><li><strong>429:</strong> достигнут месячный лимит.</li><li><strong>502:</strong> проверьте Ollama и наличие модели.</li></ul><pre><code>pm2 status
+pm2 logs local-ai-api --lines 100
+sudo systemctl status ollama
+curl http://127.0.0.1:11434/api/tags</code></pre></section>
+<section class="card docs-card"><p class="eyebrow">Безопасность</p><h2>Рекомендации</h2><ul><li>Не передавайте ключи в URL или публичные репозитории.</li><li>Не открывайте порт Ollama 11434 в интернет.</li><li>Используйте отдельный ключ для каждого клиента.</li><li>Храните резервные копии конфигурации и SQLite в защищённом месте.</li></ul></section>
+</main>
 </body>
 </html>
