@@ -185,7 +185,7 @@ app.get('/auth/server-status', requireAdmin, async (_req, res) => {
     arch: os.arch(), uptimeSeconds: Math.floor(os.uptime()), cpuCores: os.cpus().length,
     loadAverage: os.loadavg().map(value => Number(value.toFixed(2))),
     memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem() },
-    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel
+    processMemory: process.memoryUsage().rss, disk, ollama, installedModels, defaultModel: config.defaultModel, telegramEnabled: Boolean(config.telegram?.enabled)
   });
 });
 
@@ -268,7 +268,7 @@ app.post('/auth/chat/python', requireAdmin, (req, res) => {
     '        except Exception as error: print("Request failed:", error); history.pop()',
     'if __name__ == "__main__": main()',
     ''
-  ].join('\\n');
+  ].join('\n');
   res.setHeader('Content-Type', 'text/x-python; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="local-ii-client.py"');
   res.setHeader('Cache-Control', 'no-store');
