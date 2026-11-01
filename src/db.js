@@ -84,6 +84,7 @@ const statements = {
   recordUsage: db.prepare('INSERT INTO usage_events(key_id,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,status_code) VALUES(?,?,?,?,?,?,?)'),
   touchKey: db.prepare('UPDATE api_keys SET last_used_at=CURRENT_TIMESTAMP WHERE id=?'),
   toggleKey: db.prepare('UPDATE api_keys SET enabled=? WHERE id=?'),
+  rotateKey: db.prepare('UPDATE api_keys SET key_hash=?,key_prefix=?,encrypted_key=? WHERE id=?'),
   deleteKey: db.prepare('DELETE FROM api_keys WHERE id=?'),
   tokenStats: db.prepare(`SELECT COUNT(*) all_requests, COALESCE(SUM(total_tokens),0) all_tokens,
     COALESCE(SUM(CASE WHEN created_at >= datetime('now','+3 hours','start of month','-3 hours') THEN total_tokens ELSE 0 END),0) month_tokens,
