@@ -44,7 +44,13 @@
       serverStatus.dataset.state = data.ollama ? 'ok' : 'error';
       if (serverFields.version) serverFields.version.textContent = 'v' + data.version;
       if (serverFields.platform) serverFields.platform.textContent = data.platform + ' · ' + data.arch;
-      if (serverFields.cpu) serverFields.cpu.textContent = data.cpuCores + ' ядер';
+      if (serverFields.cpu) {
+        const count = Number(data.cpuCores) || 0;
+        const mod100 = count % 100;
+        const mod10 = count % 10;
+        const unit = mod100 >= 11 && mod100 <= 14 ? 'ядер' : mod10 === 1 ? 'ядро' : mod10 >= 2 && mod10 <= 4 ? 'ядра' : 'ядер';
+        serverFields.cpu.textContent = count + ' ' + unit;
+      }
       if (serverFields.uptime) serverFields.uptime.textContent = formatDuration(data.uptimeSeconds);
       if (serverFields.models) serverFields.models.textContent = data.installedModels + ' · ' + data.defaultModel;
       if (serverFields.telegram) serverFields.telegram.textContent = data.telegramEnabled ? 'Настроен' : 'Не подключён';
