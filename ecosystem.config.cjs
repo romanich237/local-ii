@@ -9,6 +9,14 @@ module.exports = {
       env: { NODE_ENV: 'production' }
     },
     {
+      name: 'local-ai-telegram',
+      script: 'src/telegram.js',
+      cwd: __dirname,
+      autorestart: true,
+      max_memory_restart: '128M',
+      env: { NODE_ENV: 'production' }
+    },
+    {
       name: 'local-ai-updater',
       script: 'src/updater.js',
       cwd: __dirname,
