@@ -7,49 +7,45 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 APP_DIR=${1:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}
-CREDENTIAL_DIR=/etc/local-ii
-CREDENTIAL_FILE=${CREDENTIAL_DIR}/github-credentials
-REMOTE_URL=https://github.com/romanich237/local-ii.git
+REPO_SSH=git@github.com:romanich237/local-ii.git
+SECURE_DIR=/etc/local-ii
+PRIVATE_KEY=${SECURE_DIR}/deploy_key
+KNOWN_HOSTS=${SECURE_DIR}/known_hosts
 
-if [[ ! -d "$APP_DIR/.git" ]]; then
+if [[ ! -d "${APP_DIR}/.git" ]]; then
   echo "В каталоге ${APP_DIR} не найден Git-репозиторий."
   exit 1
 fi
 
-git -C "$APP_DIR" remote set-url origin "$REMOTE_URL"
-install -d -m 700 "$CREDENTIAL_DIR"
-
-if [[ -s "$CREDENTIAL_FILE" ]]; then
-  chmod 600 "$CREDENTIAL_FILE"
-  git -C "$APP_DIR" config --local credential.helper "store --file=${CREDENTIAL_FILE}"
-  if GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote origin HEAD >/dev/null 2>&1; then
-    echo "Доступ к GitHub уже настроен. Повторный ввод не требуется."
-    exit 0
-  fi
+install -d -m 700 "${SECURE_DIR}"
+if [[ ! -s "${PRIVATE_KEY}" ]]; then
+  ssh-keygen -q -t ed25519 -N "" -C "local-ii-deploy-$(hostname)" -f "${PRIVATE_KEY}"
 fi
+chmod 600 "${PRIVATE_KEY}"
+chmod 644 "${PRIVATE_KEY}.pub"
+ssh-keyscan -H github.com >> "${KNOWN_HOSTS}" 2>/dev/null
+chmod 600 "${KNOWN_HOSTS}"
 
-if GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote origin HEAD >/dev/null 2>&1; then
-  echo "Доступ к GitHub уже сохранён системным менеджером учётных данных."
-  exit 0
-fi
-
-git -C "$APP_DIR" config --local credential.helper "store --file=${CREDENTIAL_FILE}"
-echo "Введите GitHub Personal Access Token один раз. Он будет использоваться для git pull и автообновления."
-read -rsp "GitHub Token: " GITHUB_TOKEN; echo
-if [[ ! "$GITHUB_TOKEN" =~ ^[a-zA-Z0-9_]{20,255}$ ]]; then
-  echo "Некорректный GitHub Token"
+echo ""
+echo "Публичный ключ для read-only доступа к romanich237/local-ii:"
+echo "----------------------------------------------------------------"
+cat "${PRIVATE_KEY}.pub"
+echo "----------------------------------------------------------------"
+echo ""
+echo "Добавьте его в GitHub:"
+echo "Repository → Settings → Deploy keys → Add deploy key"
+echo "Title: local-ii server ($(hostname))"
+echo "Allow write access: НЕ включать"
+echo ""
+read -rp "Нажмите Enter после добавления ключа в Deploy keys..." _
+SSH_COMMAND="ssh -i ${PRIVATE_KEY} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${KNOWN_HOSTS}"
+if ! GIT_SSH_COMMAND="${SSH_COMMAND}" git ls-remote "${REPO_SSH}" HEAD >/dev/null; then
+  echo "GitHub пока не принимает ключ. Проверьте, что он добавлен именно в romanich237/local-ii."
   exit 1
 fi
 
-umask 077
-printf "https://romanich237:%s@github.com\n" "$GITHUB_TOKEN" > "$CREDENTIAL_FILE"
-chmod 600 "$CREDENTIAL_FILE"
-unset GITHUB_TOKEN
-
-if ! GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote origin HEAD >/dev/null 2>&1; then
-  printf '' > "$CREDENTIAL_FILE"
-  echo "Токен не подходит или не имеет доступа к romanich237/local-ii."
-  exit 1
-fi
-
-echo "Готово. GitHub больше не будет запрашивать логин и токен при обновлении."
+git -C "${APP_DIR}" remote set-url origin "${REPO_SSH}"
+git -C "${APP_DIR}" config --local core.sshCommand "${SSH_COMMAND}"
+git -C "${APP_DIR}" config --local --unset credential.helper 2>/dev/null || true
+echo "Готово: origin использует отдельный read-only deploy key."
+echo "Проверка: git -C ${APP_DIR} ls-remote origin HEAD"
