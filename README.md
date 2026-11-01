@@ -79,8 +79,15 @@ Updater проверяет ветку с интервалом из `config.json`
 
 Если нужно установить последнюю версию немедленно, подключитесь к серверу и выполните команды от того же пользователя, под которым запущен PM2. В стандартной установке Local AI Server это root:
 
+Сначала переключитесь на root:
+
 ```bash
 sudo -i
+```
+
+Затем выполните обновление:
+
+```bash
 cd /opt/local-ii
 git fetch --prune origin main
 git merge --ff-only origin/main
@@ -108,10 +115,10 @@ sudo bash setup-github-access.sh
 ```bash
 git log -1 --oneline
 pm2 status
-curl -fsS http://127.0.0.1:3000/health
+PORT=$(node -p "require('./config.json').port")
+curl -fsS "http://127.0.0.1:$PORT/health"
 ```
 
-Последняя команда предполагает стандартный порт 3000; если в локальном `config.json` задан другой порт, подставьте его.
 
 
 ```bash
