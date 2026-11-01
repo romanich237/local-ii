@@ -72,8 +72,20 @@ function check(manual = false) {
     const latestVersion = String(remotePackage.version || 'unknown');
 
     if (local === remote) {
-      writeStatus('current', { latestVersion, message: 'Установлена последняя версия.' });
-      console.log('[update] Установлена актуальная версия ' + latestVersion);
+      let requestedRuntimeVersion = null;
+      try {
+        const request = JSON.parse(fs.readFileSync(requestPath, 'utf8'));
+        requestedRuntimeVersion = request.runtimeVersion || null;
+      } catch {}
+      if (requestedRuntimeVersion && requestedRuntimeVersion !== installedVersion()) {
+        writeStatus('updating', { latestVersion, message: 'Исходники актуальны. Перезапускается API для синхронизации версии…' });
+        run('pm2', ['restart', 'local-ai-api', '--update-env']);
+        writeStatus('updated', { latestVersion, installedVersion: installedVersion(), message: 'API перезапущен. Версия синхронизирована.' });
+        console.log('[update] API перезапущен для синхронизации runtime-версии.');
+      } else {
+        writeStatus('current', { latestVersion, installedVersion: installedVersion(), message: 'Установлена последняя версия.' });
+        console.log('[update] Установлена актуальная версия ' + latestVersion);
+      }
       return;
     }
 
