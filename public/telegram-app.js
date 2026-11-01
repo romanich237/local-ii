@@ -4,12 +4,14 @@
   const status = document.querySelector('[data-miniapp-status]');
   const message = document.querySelector('[data-miniapp-message]');
   const retry = document.querySelector('[data-miniapp-retry]');
+  const fallbackForm = document.querySelector('[data-miniapp-login]');
+  const fallbackError = document.querySelector('[data-miniapp-login-error]');
+  const fallbackSubmit = document.querySelector('[data-miniapp-login-submit]');
   const profile = document.querySelector('[data-miniapp-profile]');
   const links = document.querySelector('[data-miniapp-links]');
-  const tg = window.Telegram?.WebApp;
   let connecting = false;
 
-  function showError(text, details = '') {
+  function showFallback(text, details = '') {
     if (message) message.textContent = text;
     const diagnostic = document.querySelector('[data-miniapp-diagnostic]');
     if (diagnostic) {
@@ -18,7 +20,7 @@
     }
     if (status) status.classList.add('miniapp-auth-error');
     if (retry) retry.hidden = false;
-    tg?.HapticFeedback?.notificationOccurred?.('error');
+    if (fallbackForm) fallbackForm.hidden = false;
   }
 
   function wait(ms) {
@@ -26,13 +28,23 @@
   }
 
   async function getInitData() {
-    // Telegram иногда заполняет launch-параметры после первичной загрузки WebView.
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const value = window.Telegram?.WebApp?.initData;
       if (typeof value === 'string' && value.length > 0) return value;
       await wait(100);
     }
     return '';
+  }
+
+  function showAuthenticated(user, method) {
+    const name = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || (user.username ? '@' + user.username : 'Администратор');
+    document.querySelector('[data-miniapp-name]').textContent = name;
+    document.querySelector('[data-miniapp-id-label]').textContent = method === 'telegram' ? 'Telegram ID' : 'Логин';
+    document.querySelector('[data-miniapp-id]').textContent = method === 'telegram' ? user.id : (user.username || 'Администратор');
+    profile.hidden = false;
+    links.hidden = false;
+    status.hidden = true;
+    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
   }
 
   async function connect() {
@@ -42,10 +54,11 @@
     if (message) message.textContent = 'Подключаем Telegram и проверяем данные запуска…';
     if (status) status.classList.remove('miniapp-auth-error');
 
+    const tg = window.Telegram?.WebApp;
     if (!tg) {
-      showError(
-        'Не удалось подключить Telegram WebApp API.',
-        'Откройте бота @CyxapukAI и запустите Mini App кнопкой «Открыть панель управления». Не используйте обычную ссылку из браузера.'
+      showFallback(
+        'Telegram не удалось распознать. Вы можете войти вручную.',
+        'Откройте Mini App из бота либо используйте резервный вход по логину и паролю администратора.'
       );
       connecting = false;
       return;
@@ -56,18 +69,11 @@
       tg.expand();
       tg.setHeaderColor?.('#171717');
       tg.setBackgroundColor?.('#171717');
-
       const initData = await getInitData();
       if (!initData) {
-        const platform = tg.platform || 'не определена';
-        const version = tg.version || 'не определена';
-        const unsafeUser = tg.initDataUnsafe?.user;
-        const hasUntrustedUser = Boolean(unsafeUser?.id);
-        showError(
-          'Telegram не передал подписанные данные запуска.',
-          'Платформа: ' + platform + ' · WebApp API: ' + version + '. ' +
-          (hasUntrustedUser ? 'Telegram показал профиль, но не передал подпись. Вход по неподписанному ID запрещён. ' : '') +
-          'Закройте окно, откройте личный чат с @CyxapukAI и нажмите кнопку Mini App в сообщении /start. Если ошибка повторяется, проверьте домен Web App в BotFather и обновите Telegram.'
+        showFallback(
+          'Telegram не передал данные аккаунта. Войдите по логину и паролю.',
+          'Подписанные данные initData отсутствуют. Для безопасности вход по неподписанному Telegram ID не используется.'
         );
         connecting = false;
         return;
@@ -81,23 +87,59 @@
         body: JSON.stringify({ initData })
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.ok) throw new Error(result.error || 'Не удалось авторизовать Telegram-аккаунт');
-
-      const user = result.user;
-      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || (user.username ? '@' + user.username : 'Администратор');
-      document.querySelector('[data-miniapp-name]').textContent = fullName;
-      document.querySelector('[data-miniapp-id]').textContent = user.id;
-      profile.hidden = false;
-      links.hidden = false;
-      status.hidden = true;
-      tg.HapticFeedback?.notificationOccurred?.('success');
+      if (!response.ok || !result.ok) {
+        showFallback(
+          result.error || 'Telegram ID не подтверждён. Используйте резервный вход.',
+          'Можно войти с теми же логином и паролем, которые используются для входа в веб-админку.'
+        );
+        connecting = false;
+        return;
+      }
+      showAuthenticated(result.user, 'telegram');
     } catch (error) {
-      showError(error.message || 'Ошибка подключения к серверу.');
-      connecting = false;
-      return;
+      showFallback(error.message || 'Не удалось подключиться к Telegram.', 'Попробуйте повторить проверку или войдите по логину и паролю.');
     }
     connecting = false;
   }
+
+  fallbackForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (fallbackSubmit) {
+      fallbackSubmit.disabled = true;
+      fallbackSubmit.textContent = 'Проверка…';
+    }
+    if (fallbackError) {
+      fallbackError.hidden = true;
+      fallbackError.textContent = '';
+    }
+    const form = new FormData(fallbackForm);
+    try {
+      const response = await fetch('/telegram-app/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          username: String(form.get('username') || ''),
+          password: String(form.get('password') || '')
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Не удалось войти');
+      showAuthenticated(result.user, 'password');
+      fallbackForm.hidden = true;
+    } catch (error) {
+      if (fallbackError) {
+        fallbackError.textContent = error.message;
+        fallbackError.hidden = false;
+      }
+    } finally {
+      if (fallbackSubmit) {
+        fallbackSubmit.disabled = false;
+        fallbackSubmit.textContent = 'Войти в панель';
+      }
+    }
+  });
 
   retry?.addEventListener('click', connect);
   connect();
